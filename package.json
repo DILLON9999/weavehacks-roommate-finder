@@ -9,6 +9,8 @@
     "housing-agent": "npx tsc agents/housing-agent.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/housing-agent.js",
     "orchestrator": "npx tsc agents/orchestrator-agent.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/orchestrator-agent.js",
     "multi-agent": "npx tsc multi-agent-system.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node multi-agent-system.js",
+    "multi-agent-mcp": "npx tsc multi-agent-system-mcp.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node multi-agent-system-mcp.js",
+    "test-mcp": "npx tsc test-mcp-system.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node test-mcp-system.js",
     "mapbox-commute": "npx tsc agents/commute-agent-mapbox.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/commute-agent-mapbox.js"
   },
   "dependencies": {

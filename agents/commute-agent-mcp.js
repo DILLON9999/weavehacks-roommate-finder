@@ -1,27 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MapboxCommuteAgent = void 0;
-const base_agent_1 = require("./base-agent");
-const openai_1 = require("@langchain/openai");
+exports.CommuteAgentMCP = void 0;
+const mcp_base_agent_1 = require("./mcp-base-agent");
 const mcp_adapters_1 = require("@langchain/mcp-adapters");
 const dotenv_1 = require("dotenv");
 (0, dotenv_1.config)();
-class MapboxCommuteAgent extends base_agent_1.BaseAgent {
+class CommuteAgentMCP extends mcp_base_agent_1.MCPBaseAgent {
     constructor() {
         // Use gpt-4o for better MCP reasoning instead of gpt-4o-mini
-        super('MapboxCommuteAgent', 'gpt-4o');
+        super('CommuteAgentMCP', 'gpt-4o');
         this.mcpClient = null;
         this.maxAcceptableDistance = 50000; // 50km in meters
         this.maxAcceptableTime = 3600; // 1 hour in seconds
-        // Create a dedicated smart model for MCP operations
-        this.smartModel = new openai_1.ChatOpenAI({
-            modelName: 'gpt-4o',
-            temperature: 0.1,
-        });
-        this.setupMessageHandlers();
     }
     async initialize() {
-        console.log('🗺️ Initializing Mapbox Commute Agent...');
+        console.log('🗺️ Initializing Commute Agent MCP...');
         try {
             // Try to connect to Mapbox MCP server
             this.mcpClient = new mcp_adapters_1.MultiServerMCPClient({
@@ -51,53 +44,204 @@ class MapboxCommuteAgent extends base_agent_1.BaseAgent {
             this.mcpClient = null;
         }
     }
+    getMCPTools() {
+        return [
+            {
+                name: 'analyze_commute',
+                description: 'Analyze commute between two locations using Mapbox routing',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        homeLocation: {
+                            type: 'object',
+                            properties: {
+                                address: { type: 'string', description: 'Home address' },
+                                coordinates: {
+                                    type: 'object',
+                                    properties: {
+                                        lat: { type: 'number' },
+                                        lng: { type: 'number' }
+                                    }
+                                }
+                            },
+                            required: ['address']
+                        },
+                        workLocation: {
+                            type: 'object',
+                            properties: {
+                                address: { type: 'string', description: 'Work address' },
+                                coordinates: {
+                                    type: 'object',
+                                    properties: {
+                                        lat: { type: 'number' },
+                                        lng: { type: 'number' }
+                                    }
+                                }
+                            },
+                            required: ['address']
+                        },
+                        travelMode: {
+                            type: 'string',
+                            enum: ['driving-traffic', 'driving', 'walking', 'cycling'],
+                            description: 'Travel mode for the commute',
+                            default: 'driving-traffic'
+                        },
+                        departureTime: {
+                            type: 'string',
+                            description: 'ISO format departure time'
+                        },
+                        arrivalTime: {
+                            type: 'string',
+                            description: 'ISO format arrival time'
+                        }
+                    },
+                    required: ['homeLocation', 'workLocation']
+                }
+            },
+            {
+                name: 'get_route',
+                description: 'Get detailed route information between two locations',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        origin: { type: 'string', description: 'Origin address' },
+                        destination: { type: 'string', description: 'Destination address' },
+                        travelMode: {
+                            type: 'string',
+                            enum: ['driving-traffic', 'driving', 'walking', 'cycling'],
+                            default: 'driving-traffic'
+                        }
+                    },
+                    required: ['origin', 'destination']
+                }
+            },
+            {
+                name: 'batch_commute_analysis',
+                description: 'Analyze commutes for multiple home locations to a single work location',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        homeLocations: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    address: { type: 'string' },
+                                    coordinates: {
+                                        type: 'object',
+                                        properties: {
+                                            lat: { type: 'number' },
+                                            lng: { type: 'number' }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        workLocation: {
+                            type: 'object',
+                            properties: {
+                                address: { type: 'string' },
+                                coordinates: {
+                                    type: 'object',
+                                    properties: {
+                                        lat: { type: 'number' },
+                                        lng: { type: 'number' }
+                                    }
+                                }
+                            },
+                            required: ['address']
+                        },
+                        travelMode: {
+                            type: 'string',
+                            enum: ['driving-traffic', 'driving', 'walking', 'cycling'],
+                            default: 'driving-traffic'
+                        }
+                    },
+                    required: ['homeLocations', 'workLocation']
+                }
+            }
+        ];
+    }
+    registerMCPToolHandlers() {
+        this.registerMCPTool('analyze_commute', async (args) => {
+            const request = args;
+            try {
+                const analysis = await this.analyzeCommute(request);
+                if (!analysis) {
+                    return this.createMCPError('Failed to analyze commute - no data available');
+                }
+                return this.createMCPJSONResult({
+                    success: true,
+                    analysis
+                });
+            }
+            catch (error) {
+                return this.createMCPError(`Commute analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        });
+        this.registerMCPTool('get_route', async (args) => {
+            const { origin, destination, travelMode = 'driving-traffic' } = args;
+            try {
+                const route = await this.getRoute(origin, destination, travelMode);
+                return this.createMCPJSONResult({
+                    success: true,
+                    route
+                });
+            }
+            catch (error) {
+                return this.createMCPError(`Route retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        });
+        this.registerMCPTool('batch_commute_analysis', async (args) => {
+            const { homeLocations, workLocation, travelMode = 'driving-traffic' } = args;
+            try {
+                const analyses = await Promise.all(homeLocations.map(async (homeLocation) => {
+                    const analysis = await this.analyzeCommute({
+                        homeLocation,
+                        workLocation,
+                        travelMode
+                    });
+                    return {
+                        homeLocation: homeLocation.address,
+                        analysis
+                    };
+                }));
+                return this.createMCPJSONResult({
+                    success: true,
+                    analyses: analyses.filter(a => a.analysis !== null)
+                });
+            }
+            catch (error) {
+                return this.createMCPError(`Batch commute analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        });
+    }
     getCapabilities() {
         return [
             {
                 name: 'commute_analysis',
                 description: 'Analyze commute between two locations using Mapbox',
                 parameters: {
-                    homeLocation: 'string | coordinates',
-                    workLocation: 'string | coordinates',
-                    travelMode: 'driving-traffic | driving | walking | cycling',
-                    departureTime: 'optional ISO string',
-                    arrivalTime: 'optional ISO string'
+                    homeLocation: 'object',
+                    workLocation: 'object',
+                    travelMode: 'string'
                 }
             },
             {
                 name: 'route_optimization',
                 description: 'Find optimal routes with real-time traffic',
                 parameters: {
-                    origin: 'string | coordinates',
-                    destination: 'string | coordinates',
+                    origin: 'string',
+                    destination: 'string',
                     alternatives: 'boolean'
                 }
             }
         ];
     }
-    setupMessageHandlers() {
-        this.registerHandler('analyze_commute', async (message) => {
-            const request = message.payload;
-            const analysis = await this.analyzeCommute(request);
-            return {
-                success: analysis !== null,
-                data: analysis,
-                confidence: analysis ? 0.9 : 0.0
-            };
-        });
-        this.registerHandler('get_route', async (message) => {
-            const { origin, destination, travelMode } = message.payload;
-            const route = await this.getRoute(origin, destination, travelMode);
-            return {
-                success: route !== null,
-                data: route
-            };
-        });
-    }
     async analyzeCommute(request) {
         if (!this.mcpClient) {
-            console.log('❌ Mapbox MCP client not available, using mock data');
-            return this.createMockCommuteAnalysis(request);
+            console.log('❌ Mapbox MCP client not available, using AI analysis');
+            return this.createAICommuteAnalysis(request);
         }
         try {
             console.log(`🗺️ Analyzing commute from ${request.homeLocation.address} to ${request.workLocation.address}`);
@@ -109,16 +253,16 @@ class MapboxCommuteAgent extends base_agent_1.BaseAgent {
             }
             catch (toolError) {
                 console.log('⚠️ Could not get tools from MCP server:', toolError);
-                console.log('🔄 Using mock data instead...');
-                return this.createMockCommuteAnalysis(request);
+                console.log('🔄 Using AI analysis instead...');
+                return this.createAICommuteAnalysis(request);
             }
             // Find a suitable routing tool
             const routingTool = tools.find(tool => tool.name.toLowerCase().includes('route') ||
                 tool.name.toLowerCase().includes('direction') ||
                 tool.name.toLowerCase().includes('matrix'));
             if (!routingTool) {
-                console.log('❌ No routing tool found in MCP server, using mock data');
-                return this.createMockCommuteAnalysis(request);
+                console.log('❌ No routing tool found in MCP server, using AI analysis');
+                return this.createAICommuteAnalysis(request);
             }
             console.log(`🔧 Found routing tool: ${routingTool.name}`);
             // Use the smart LLM to analyze the commute request and provide guidance
@@ -142,8 +286,8 @@ Based on this information, please provide an estimated commute analysis in the f
 
 Consider typical urban commute patterns and provide realistic estimates.
 `;
-            const analysisResponse = await this.smartModel.invoke(analysisPrompt);
-            const analysisContent = analysisResponse.content;
+            const analysisResponse = await this.makeAIDecision(analysisPrompt);
+            const analysisContent = analysisResponse;
             // Try to extract JSON from the response
             const jsonMatch = analysisContent.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
@@ -152,18 +296,52 @@ Consider typical urban commute patterns and provide realistic estimates.
                     return this.convertAIAnalysisToCommuteAnalysis(aiAnalysis, request);
                 }
                 catch (parseError) {
-                    console.log('⚠️ Could not parse AI analysis JSON, using mock data');
+                    console.log('⚠️ Could not parse AI analysis JSON, using fallback');
                 }
             }
-            // Fallback to mock data
-            console.log('🔄 Using fallback mock data...');
-            return this.createMockCommuteAnalysis(request);
+            // Fallback to basic AI analysis
+            console.log('🔄 Using fallback AI analysis...');
+            return this.createAICommuteAnalysis(request);
         }
         catch (error) {
             console.error('❌ Commute analysis error:', error);
-            console.log('🔄 Using mock data as fallback...');
-            return this.createMockCommuteAnalysis(request);
+            console.log('🔄 Using AI analysis as fallback...');
+            return this.createAICommuteAnalysis(request);
         }
+    }
+    async createAICommuteAnalysis(request) {
+        // Use AI to estimate commute based on locations
+        const estimationPrompt = `
+Estimate the commute between these locations:
+- From: ${request.homeLocation.address}
+- To: ${request.workLocation.address}
+- Mode: ${request.travelMode || 'driving-traffic'}
+
+Provide realistic estimates for:
+1. Distance in kilometers
+2. Duration in minutes without traffic
+3. Duration in minutes with traffic
+
+Consider typical urban commute patterns. Respond with ONLY a JSON object:
+{
+  "distance_km": 15.5,
+  "duration_minutes": 25,
+  "traffic_duration_minutes": 35
+}
+`;
+        try {
+            const response = await this.makeAIDecision(estimationPrompt);
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const aiData = JSON.parse(jsonMatch[0]);
+                return this.convertAIAnalysisToCommuteAnalysis(aiData, request);
+            }
+        }
+        catch (error) {
+            console.log('⚠️ AI estimation failed, using mock data');
+        }
+        // Final fallback to mock data
+        return this.createMockCommuteAnalysis(request);
     }
     convertAIAnalysisToCommuteAnalysis(aiAnalysis, request) {
         const distanceMeters = (aiAnalysis.distance_km || 15) * 1000;
@@ -299,7 +477,7 @@ Consider typical urban commute patterns and provide realistic estimates.
             return null;
         }
     }
-    // Public method for direct commute analysis
+    // Public method for direct commute analysis (backward compatibility)
     async analyzeCommutePublic(homeLocation, workLocation, travelMode = 'driving-traffic') {
         return await this.analyzeCommute({
             homeLocation: { address: homeLocation },
@@ -308,4 +486,4 @@ Consider typical urban commute patterns and provide realistic estimates.
         });
     }
 }
-exports.MapboxCommuteAgent = MapboxCommuteAgent;
+exports.CommuteAgentMCP = CommuteAgentMCP;
