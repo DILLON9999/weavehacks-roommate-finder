@@ -20,13 +20,20 @@ interface DeterministicFilters {
   location?: string;
 }
 
+interface MatchedListing {
+  listing: CleanListing;
+  matchPercentage: number;
+  originalUrl: string;
+  descriptionSummary: string;
+}
+
 class HousingAgent {
   private model: ChatOpenAI;
   private listings: CleanListing[] = [];
 
   constructor() {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4',
+      modelName: 'gpt-4o-mini',
       temperature: 0.1,
     });
     this.loadListings();
@@ -239,13 +246,28 @@ Examples:
   }
 
   // AI-based natural language matching
-  async matchWithAI(listings: CleanListing[], naturalLanguageQuery: string, maxResults: number = 5): Promise<CleanListing[]> {
+  async matchWithAI(listings: CleanListing[], naturalLanguageQuery: string, maxResults: number = 5): Promise<MatchedListing[]> {
     if (listings.length === 0) return [];
 
-    const results: { listing: CleanListing; score: number }[] = [];
+    console.log(`🚀 Processing ${listings.length} listings in parallel (5 groups)...`);
 
-    for (const listing of listings.slice(0, 20)) { // Limit to first 20 for performance
-      const prompt = `
+    // Divide listings into 5 groups for parallel processing
+    const groupSize = Math.ceil(listings.length / 5);
+    const groups: CleanListing[][] = [];
+    
+    for (let i = 0; i < listings.length; i += groupSize) {
+      groups.push(listings.slice(i, i + groupSize));
+    }
+
+    console.log(`📊 Created ${groups.length} groups with sizes: ${groups.map(g => g.length).join(', ')}`);
+
+    // Process each group in parallel
+    const processGroup = async (group: CleanListing[], groupIndex: number): Promise<MatchedListing[]> => {
+      const groupResults: MatchedListing[] = [];
+      console.log(`🔄 Processing group ${groupIndex + 1}/${groups.length} (${group.length} listings)...`);
+
+      for (const listing of group) {
+        const prompt = `
 Rate how well this listing matches the criteria: "${naturalLanguageQuery}"
 
 Listing:
@@ -265,26 +287,73 @@ Rate from 1-10 how well this matches the criteria.
 Respond with ONLY a number (1-10).
 `;
 
-      try {
-        const response = await this.model.invoke(prompt);
-        const content = response.content as string;
-        const score = parseInt(content.trim());
-        
-        if (!isNaN(score) && score >= 6) {
-          results.push({ listing, score });
+        try {
+          const response = await this.model.invoke(prompt);
+          const content = response.content as string;
+          const score = parseInt(content.trim());
+          
+          if (!isNaN(score) && score >= 6) {
+            // Generate AI summary for the listing
+            const summary = await this.generateListingSummary(listing, naturalLanguageQuery);
+            
+            groupResults.push({
+              listing,
+              matchPercentage: Math.round((score / 10) * 100), // Convert 1-10 scale to percentage
+              originalUrl: listing.url,
+              descriptionSummary: summary
+            });
+          }
+        } catch (error) {
+          console.log(`❌ Error scoring listing ${listing.id} in group ${groupIndex + 1}:`, error);
         }
-      } catch (error) {
-        console.log(`Error scoring listing ${listing.id}:`, error);
       }
-    }
+
+      console.log(`✅ Group ${groupIndex + 1} completed: ${groupResults.length} matches found`);
+      return groupResults;
+    };
+
+    // Process all groups in parallel
+    const groupPromises = groups.map((group, index) => processGroup(group, index));
+    const groupResults = await Promise.all(groupPromises);
+
+    // Combine all results from all groups
+    const allResults = groupResults.flat();
+    console.log(`🎉 Parallel processing complete! Found ${allResults.length} total matches`);
 
     // Sort by score and return top results
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, maxResults).map(r => r.listing);
+    allResults.sort((a, b) => b.matchPercentage - a.matchPercentage);
+    return allResults.slice(0, maxResults);
+  }
+
+  // Generate AI summary of listing description
+  private async generateListingSummary(listing: CleanListing, naturalLanguageQuery: string): Promise<string> {
+    const prompt = `
+Create a concise 1-2 sentence summary of this roommate listing description. Highlight how the listing matches with the users roommate search parameters:
+
+<listing description>
+"${listing.description}"
+</listing description>
+
+<user search criteria>
+"${naturalLanguageQuery}
+
+Focus on the most important details like roommate preferences, lifestyle, and unique features.
+Keep it under 100 characters if possible.
+`;
+
+    try {
+      const response = await this.model.invoke(prompt);
+      const summary = response.content as string;
+      return summary.trim();
+    } catch (error) {
+      console.log(`Error generating summary for listing ${listing.id}:`, error);
+      // Fallback to truncated description
+      return listing.description.substring(0, 80) + '...';
+    }
   }
 
   // Main search function
-  async search(query: string): Promise<CleanListing[]> {
+  async search(query: string): Promise<MatchedListing[]> {
     console.log(`🔍 Searching: "${query}"`);
     
     // Step 1: Extract deterministic filters
@@ -306,7 +375,19 @@ Respond with ONLY a number (1-10).
     
     if (!hasNaturalLanguage) {
       console.log('✅ Returning deterministic results');
-      return filteredListings.slice(0, 10);
+      const deterministicResults: MatchedListing[] = [];
+      
+      for (const listing of filteredListings.slice(0, 10)) {
+        const summary = await this.generateListingSummary(listing, query);
+        deterministicResults.push({
+          listing,
+          matchPercentage: 100, // 100% match for deterministic results
+          originalUrl: listing.url,
+          descriptionSummary: summary
+        });
+      }
+      
+      return deterministicResults;
     }
     
     // Step 4: Apply AI matching for natural language requirements
@@ -376,7 +457,7 @@ Respond with ONLY: yes or no
   }
 
   // Display results
-  displayResults(listings: CleanListing[]): void {
+  displayResults(listings: MatchedListing[]): void {
     if (listings.length === 0) {
       console.log('❌ No results found');
       return;
@@ -385,14 +466,16 @@ Respond with ONLY: yes or no
     console.log(`\n🎯 Found ${listings.length} results:\n`);
     
     listings.forEach((listing, index) => {
-      const source = (listing as any).source;
+      const source = (listing.listing as any).source;
       const sourceIcon = source === 'craigslist' ? '🔵' : source === 'facebook' ? '🔴' : '⚪';
       const sourceName = source === 'craigslist' ? 'Craigslist' : source === 'facebook' ? 'Facebook' : 'Unknown';
       
-      console.log(`${index + 1}. ${listing.title} ${sourceIcon} ${sourceName}`);
-      console.log(`   💰 $${listing.price} | 🏠 ${listing.housingType} | 📍 ${listing.location}`);
-      console.log(`   🛏️  ${listing.bedrooms}BR/${listing.bathrooms}BA | Private Room: ${listing.privateRoom ? '✅' : '❌'} | Private Bath: ${listing.privateBath ? '✅' : '❌'}`);
-      console.log(`   📝 ${listing.description.substring(0, 100)}...`);
+      console.log(`${index + 1}. ${listing.listing.title} ${sourceIcon} ${sourceName}`);
+      console.log(`   🎯 ${listing.matchPercentage}% Match`);
+      console.log(`   💰 $${listing.listing.price} | 🏠 ${listing.listing.housingType} | 📍 ${listing.listing.location}`);
+      console.log(`   🛏️  ${listing.listing.bedrooms}BR/${listing.listing.bathrooms}BA | Private Room: ${listing.listing.privateRoom ? '✅' : '❌'} | Private Bath: ${listing.listing.privateBath ? '✅' : '❌'}`);
+      console.log(`   📝 ${listing.descriptionSummary}`);
+      console.log(`   🔗 View original: ${listing.originalUrl}`);
       console.log('');
     });
   }

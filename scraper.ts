@@ -30,6 +30,7 @@ interface ListingDetails {
 
 interface CleanListing {
   id: string;
+  url: string;
   title: string;
   price: number;
   location: string;
@@ -89,6 +90,7 @@ function processListings(rawListings: ListingDetails[]): void {
     // Create clean listing
     const clean: CleanListing = {
       id,
+      url: raw.url,
       title: raw.title || '',
       price: parsePrice(raw.price),
       location: raw.location || '',
