@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ArrowLeft, MapPin, Calendar, Home, Bath, Car, Shirt, Ban, Users, Sparkles, Target, Route } from 'lucide-react';
 import { Listing } from '@/types/listing';
 import ImageLightbox from './ImageLightbox';
+import LocationScores from './LocationScores';
 
 interface ListingDetailProps {
   listing: Listing;
@@ -146,6 +147,9 @@ export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
             )}
           </div>
         )}
+
+        {/* Location Scores */}
+        <LocationScores locationAnalysis={listing.locationAnalysis} />
 
         {/* Commute Analysis */}
         {listing.commuteAnalysis && (

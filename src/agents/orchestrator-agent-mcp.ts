@@ -2,6 +2,7 @@ import { MCPBaseAgent, MCPTool, MCPToolResult, MCPAgentClient, AgentCapability }
 import { HousingAgentMCP } from './housing-agent-mcp';
 import { CommuteAgentMCP } from './commute-agent-mcp';
 import { MessengerAgentMCP } from './messenger-agent-mcp';
+import { LocationScoringAgentMCP } from './location-scoring-agent-mcp';
 import * as weave from 'weave';
 
 export interface QueryAnalysis {
@@ -37,9 +38,11 @@ export class OrchestratorAgentMCP extends MCPBaseAgent {
   private housingAgent: HousingAgentMCP | null = null;
   private commuteAgent: CommuteAgentMCP | null = null;
   private messengerAgent: MessengerAgentMCP | null = null;
+  private locationScoringAgent: LocationScoringAgentMCP | null = null;
   private housingClient: MCPAgentClient | null = null;
   private commuteClient: MCPAgentClient | null = null;
   private messengerClient: MCPAgentClient | null = null;
+  private locationClient: MCPAgentClient | null = null;
   private availableAgents: Map<string, MCPAgentClient> = new Map();
 
   constructor() {
@@ -53,20 +56,24 @@ export class OrchestratorAgentMCP extends MCPBaseAgent {
     this.housingAgent = new HousingAgentMCP();
     this.commuteAgent = new CommuteAgentMCP();
     this.messengerAgent = new MessengerAgentMCP();
+    this.locationScoringAgent = new LocationScoringAgentMCP();
     
     await this.housingAgent.initializeMCP();
     await this.commuteAgent.initializeMCP();
     await this.messengerAgent.initialize();
+    await this.locationScoringAgent.initializeMCP();
     
     // Create MCP clients for each agent
     this.housingClient = new MCPAgentClient(this.housingAgent, this.agentName);
     this.commuteClient = new MCPAgentClient(this.commuteAgent, this.agentName);
     this.messengerClient = new MCPAgentClient(this.messengerAgent, this.agentName);
+    this.locationClient = new MCPAgentClient(this.locationScoringAgent, this.agentName);
     
     // Register available agents
     this.availableAgents.set('housing', this.housingClient);
     this.availableAgents.set('commute', this.commuteClient);
     this.availableAgents.set('messenger', this.messengerClient);
+    this.availableAgents.set('location', this.locationClient);
     
     console.log('🎭 Orchestrator MCP initialized with agents:', Array.from(this.availableAgents.keys()));
     
@@ -518,7 +525,7 @@ Respond with ONLY a JSON object:
     }
   }
 
-  async orchestrateSearch(query: string, workLocation?: string, housingFilters?: any, maxResults: number = 5): Promise<OrchestratedResult> {
+  async orchestrateSearch(query: string, workLocation?: string, housingFilters?: any, maxResults: number = 10): Promise<OrchestratedResult> {
     console.log(`🎭 Orchestrating search for: "${query}"`);
     
     // Analyze the query first
@@ -563,7 +570,7 @@ Respond with ONLY a JSON object:
     }
   }
 
-  private async executeHousingSearch(originalQuery: string, analysis: QueryAnalysis, agentsUsed: string[], housingFilters?: any, maxResults: number = 5): Promise<OrchestratedResult> {
+  private async executeHousingSearch(originalQuery: string, analysis: QueryAnalysis, agentsUsed: string[], housingFilters?: any, maxResults: number = 10): Promise<OrchestratedResult> {
     agentsUsed.push('housing');
     
     if (!this.housingClient) {
@@ -589,7 +596,71 @@ Respond with ONLY a JSON object:
     };
   }
 
-  private async executeCombinedSearch(originalQuery: string, analysis: QueryAnalysis, agentsUsed: string[], workLocation?: string, housingFilters?: any, maxResults: number = 5): Promise<OrchestratedResult> {
+  private async addLocationScoring(listings: any[], agentsUsed: string[]): Promise<any[]> {
+    if (!this.locationClient || !listings || listings.length === 0) {
+      return listings;
+    }
+
+    try {
+      console.log(`🗺️ Adding location scores for ${listings.length} listings...`);
+      agentsUsed.push('location');
+
+      // Prepare listings for location scoring
+      const listingsWithCoords = listings.map(listing => ({
+        coordinates: {
+          latitude: listing.listing?.coordinates?.latitude || listing.coordinates?.latitude,
+          longitude: listing.listing?.coordinates?.longitude || listing.coordinates?.longitude
+        },
+        title: listing.listing?.title || listing.title,
+        location: listing.listing?.location || listing.location,
+        url: listing.listing?.url || listing.url
+      })).filter(listing => listing.coordinates.latitude && listing.coordinates.longitude);
+
+      if (listingsWithCoords.length === 0) {
+        console.log('⚠️ No listings with valid coordinates found for location scoring');
+        return listings;
+      }
+
+      // Call location scoring agent
+      const locationResult = await this.locationClient.callTool('score_multiple_locations', {
+        listings: listingsWithCoords
+      });
+
+      const locationData = JSON.parse(locationResult.content[0].text);
+      console.log(`✅ Location scoring completed for ${Object.keys(locationData).length} listings`);
+
+      // Enhance listings with location scores
+      const enhancedListings = listings.map(listing => {
+        const listingUrl = listing.listing?.url || listing.url;
+        const locationScores = locationData[listingUrl];
+        
+        if (locationScores) {
+          return {
+            ...listing,
+            locationAnalysis: {
+              walkScore: locationScores.walkScore,
+              bikeScore: locationScores.bikeScore,
+              transitScore: locationScores.transitScore,
+              safetySentiment: locationScores.safetySentiment
+            },
+            scores: {
+              ...listing.scores,
+              location: Math.round((locationScores.walkScore + locationScores.bikeScore + locationScores.transitScore) / 3)
+            }
+          };
+        }
+        
+        return listing;
+      });
+
+      return enhancedListings;
+    } catch (error) {
+      console.error('❌ Error adding location scores:', error);
+      return listings; // Return original listings if location scoring fails
+    }
+  }
+
+  private async executeCombinedSearch(originalQuery: string, analysis: QueryAnalysis, agentsUsed: string[], workLocation?: string, housingFilters?: any, maxResults: number = 10): Promise<OrchestratedResult> {
     agentsUsed.push('housing', 'commute');
     
     if (!this.housingClient || !this.commuteClient) {

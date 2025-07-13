@@ -32,9 +32,16 @@ export interface Listing {
     durationInTraffic?: string;
     recommendation: string;
   };
+  locationAnalysis?: {
+    walkScore: number;
+    bikeScore: number;
+    transitScore: number;
+    safetySentiment: string;
+  };
   scores?: {
     housing?: number;
     commute?: number;
+    location?: number;
     combined?: number;
   };
   source?: string;

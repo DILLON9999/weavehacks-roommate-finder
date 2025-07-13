@@ -1,60 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏠 Roomer - WeaveHacks 2024
 
-## Getting Started
+**Finding the perfect roommate shouldn't feel like dating apps from hell.** 
 
-First, run the development server:
+Roomer is an AI-powered roommate finder that actually gets you. Instead of endlessly scrolling through sketchy Craigslist posts and Facebook groups, our multi-agent AI system does the heavy lifting - scraping listings, analyzing neighborhoods, and matching you with compatible living situations.
+
+## 🤖 What Makes This Special
+
+We built something pretty wild - a **multi-agent AI system using Model Context Protocol (MCP)** that treats roommate finding like the complex problem it actually is. Here's what's under the hood:
+
+### The Agent Squad 🎯
+
+- **🏠 Housing Agent**: Scrapes and analyzes listings from Craigslist and Facebook
+- **🗺️ Location Scoring Agent**: Uses Exa AI to score neighborhoods on walkability, safety, and vibes
+- **🚇 Commute Agent**: Calculates real commute times using TomTom routing
+- **💬 Messenger Agent**: Handles the conversational AI chat interface  
+- **🎭 Orchestrator Agent**: Coordinates everything like a conductor with ADHD
+
+### MCP Integration ⚡
+
+We're using **Model Context Protocol** to let our agents share context and work together seamlessly. Each agent is an MCP server that can be composed into larger workflows - basically we made our AI agents play nice with each other instead of fighting over who gets to talk.
+
+## 🎪 Core Features
+
+**🗺️ Smart Map Filtering**: Only see listings in your current map view - no more scrolling through places you'd never live
+
+**🧠 AI Chat Assistant**: Press `Cmd+K` and ask things like "find me a place near good coffee shops under $1200" 
+
+**📍 Location Intelligence**: Every listing gets scored on:
+- Walk Score (can you actually walk places?)
+- Bike Score (bike lane situation) 
+- Transit Score (how screwed are you without a car?)
+- Safety Analysis (AI reads the neighborhood vibes)
+
+**🤝 Compatibility Matching**: Coming soon - we're building personality matching so you don't end up with a roommate who leaves dishes in the sink for weeks
+
+## 🚀 Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Hit up [http://localhost:3000](http://localhost:3000) and start exploring!
 
-## App Structure
+### Environment Setup
 
-- **Home Page (/)**: Redirects authenticated users to `/places`
-- **Places Page (/places)**: Main application with map-based listing filtering
-- **Authentication Page (/auth)**: Login and signup
-- **Settings Page (/settings)**: User profile management
+You'll need some API keys to make the magic happen:
 
-## Map-Based Filtering
+```bash
+EXA_API_KEY=your_exa_api_key_here
+OPENAI_API_KEY=your_openai_key
+TOMTOM_API_KEY=your_tomtom_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_key
+```
 
-The `/places` page features advanced map-based filtering where:
-- Only listings within the current map viewport are shown
-- Moving or zooming the map automatically updates the visible listings
-- Traditional filters (search, price, beds/baths) work alongside map filtering
-- Real-time results counter shows listings in current view
+## 🛠️ The Tech Stack
 
-## AI Search Assistant
+**Frontend**: Next.js 14, React, Tailwind CSS, TypeScript
+**Backend**: Node.js, Supabase (PostgreSQL)
+**AI**: OpenAI GPT-4, Exa AI for search
+**Maps**: TomTom API for routing and maps
+**Agent Framework**: Custom MCP implementation
+**Data Sources**: Craigslist, Facebook Marketplace (scraped responsibly)
 
-The app features an AI-powered search assistant that helps users find rooms and roommates:
-- Access via the search bar in the header or press `Cmd+K` (or `Ctrl+K` on Windows/Linux)
-- Powered by OpenAI's GPT-4 model
-- Provides personalized recommendations and answers questions about room finding
-- Chat interface with message history
-- Contextual responses tailored to the roommate finding platform
+## 🏗️ Architecture
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Next.js App   │───▶│  Agent Bridge    │───▶│ Multi-Agent     │
+│                 │    │                  │    │ System (MCP)    │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                                          │
+                       ┌─────────────────────────────────┼─────────────────┐
+                       │                                 │                 │
+                ┌──────▼──────┐  ┌──────────────┐  ┌─────▼─────┐  ┌───────▼───────┐
+                │   Housing   │  │   Location   │  │  Commute  │  │  Messenger    │
+                │   Agent     │  │   Scoring    │  │   Agent   │  │   Agent       │
+                │             │  │   Agent      │  │           │  │               │
+                └─────────────┘  └──────────────┘  └───────────┘  └───────────────┘
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🎯 What We Built for WeaveHacks
 
-## Learn More
+This isn't just another CRUD app with a chat feature. We built:
 
-To learn more about Next.js, take a look at the following resources:
+1. **A real multi-agent system** - agents that actually coordinate and share context
+2. **MCP integration** - making AI agents composable and reusable  
+3. **Smart location analysis** - not just "this place exists" but "this place fits your lifestyle"
+4. **Real-time data scraping** - fresh listings from multiple sources
+5. **Contextual AI chat** - an assistant that actually understands roommate hunting
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔮 What's Next
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Personality matching algorithm** using chat history and preferences
+- **Automated roommate introductions** via the messenger agent
+- **Budget optimization** suggestions based on commute costs
+- **Group living coordination** for 3+ roommate situations
+- **Integration with more platforms** (SpareRoom, Apartments.com, etc.)
 
-## Deploy on Vercel
+## 🤝 The Team
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Built with caffeine, determination, and probably too much ambition for a hackathon weekend.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+*Made for WeaveHacks 2024 - where we learned that building AI agents is like herding cats, but way more fun.*

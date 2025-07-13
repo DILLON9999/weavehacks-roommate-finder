@@ -269,7 +269,7 @@ export class HousingAgentMCP extends MCPBaseAgent {
     return [...this.craigslistData, ...this.facebookData];
   }
 
-  private async searchHousing(query: string, filters: DeterministicFilters = {}, maxResults: number = 5): Promise<MatchedListing[]> {
+  private async searchHousing(query: string, filters: DeterministicFilters = {}, maxResults: number = 10): Promise<MatchedListing[]> {
     console.log(`🔍 Searching housing with query: "${query}"`);
     
     // First apply deterministic filters
@@ -327,7 +327,7 @@ Respond with ONLY: yes or no
       }
   }
 
-  private async matchWithAIBatch(listings: CleanListing[], naturalLanguageQuery: string, maxResults: number = 5): Promise<MatchedListing[]> {
+  private async matchWithAIBatch(listings: CleanListing[], naturalLanguageQuery: string, maxResults: number = 10): Promise<MatchedListing[]> {
     if (listings.length === 0) return [];
 
     console.log(`🚀 Processing ${listings.length} listings in parallel (5 groups)...`);

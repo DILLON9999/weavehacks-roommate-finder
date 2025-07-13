@@ -1,16 +1,27 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
-import { MapPin, Sparkles } from 'lucide-react';
+import { MapPin, Sparkles, MapIcon, Loader2 } from 'lucide-react';
 import { Listing } from '@/types/listing';
+
+interface LocationAnalysis {
+  walkScore: number;
+  bikeScore: number;
+  transitScore: number;
+  safetySentiment: string;
+}
 
 interface ListingCardProps {
   listing: Listing;
   isSelected: boolean;
   onClick: () => void;
+  onLocationUpdate?: (listingUrl: string, locationAnalysis: LocationAnalysis) => void;
 }
 
-export default function ListingCard({ listing, isSelected, onClick }: ListingCardProps) {
+export default function ListingCard({ listing, isSelected, onClick, onLocationUpdate }: ListingCardProps) {
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const getFirstImage = () => {
     return listing.images && listing.images.length > 0 
       ? listing.images[0] 
@@ -42,6 +53,45 @@ export default function ListingCard({ listing, isSelected, onClick }: ListingCar
     if (score >= 70) return 'from-yellow-500 to-yellow-600';
     if (score >= 60) return 'from-orange-500 to-orange-600';
     return 'from-red-500 to-red-600';
+  };
+
+  const handleGetLocationScore = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    
+    if (!listing.coordinates?.latitude || !listing.coordinates?.longitude) {
+      setLocationError('No coordinates available for this listing');
+      return;
+    }
+
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    try {
+      const response = await fetch('/api/location-score', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latitude: listing.coordinates.latitude,
+          longitude: listing.coordinates.longitude,
+          listingTitle: listing.title,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && onLocationUpdate) {
+        onLocationUpdate(listing.url, data.locationAnalysis);
+      } else {
+        setLocationError(data.error || 'Failed to get location scores');
+      }
+    } catch (error) {
+      setLocationError('Network error - please try again');
+      console.error('Location scoring error:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
   };
 
   return (
@@ -113,6 +163,51 @@ export default function ListingCard({ listing, isSelected, onClick }: ListingCar
             {listing.scores.commute && (
               <div className="text-green-400">
                 🚗 {listing.scores.commute}%
+              </div>
+            )}
+            {listing.scores.location && (
+              <div className="text-purple-400">
+                📍 {listing.scores.location}%
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Location Analysis or Get Location Score Button */}
+        {listing.locationAnalysis ? (
+          <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-2 mb-1">
+              <MapIcon className="w-3 h-3 text-purple-500" />
+              <span className="text-xs font-medium text-gray-700">Location Scores</span>
+            </div>
+            <div className="flex gap-3 text-xs text-gray-600">
+              <span>🚶 {listing.locationAnalysis.walkScore}</span>
+              <span>🚴 {listing.locationAnalysis.bikeScore}</span>
+              <span>🚇 {listing.locationAnalysis.transitScore}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2">
+            <button
+              onClick={handleGetLocationScore}
+              disabled={isLoadingLocation}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoadingLocation ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Getting Location Scores...
+                </>
+              ) : (
+                <>
+                  <MapIcon className="w-3 h-3" />
+                  Get Location Score
+                </>
+              )}
+            </button>
+            {locationError && (
+              <div className="mt-1 text-xs text-red-500 text-center">
+                {locationError}
               </div>
             )}
           </div>

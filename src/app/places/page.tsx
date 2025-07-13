@@ -163,6 +163,32 @@ export default function PlacesPage() {
     setMapBounds(null);
   };
 
+  const handleLocationUpdate = (listingUrl: string, locationAnalysis: { 
+    walkScore: number; 
+    bikeScore: number; 
+    transitScore: number; 
+    safetySentiment: string; 
+  }) => {
+    const locationScore = Math.round((locationAnalysis.walkScore + locationAnalysis.bikeScore + locationAnalysis.transitScore) / 3);
+    
+    // Update both displayed listings and all listings
+    const updateListings = (listings: Listing[]) => listings.map(listing => 
+      listing.url === listingUrl 
+        ? { 
+            ...listing, 
+            locationAnalysis,
+            scores: {
+              ...listing.scores,
+              location: locationScore
+            }
+          }
+        : listing
+    );
+    
+    setDisplayedListings(updateListings);
+    setAllListings(updateListings);
+  };
+
   const selectedListingData = selectedListing 
     ? displayedListings.find(l => l.url === selectedListing) 
     : null;
@@ -258,6 +284,7 @@ export default function PlacesPage() {
                     listing={listing}
                     isSelected={selectedListing === listing.url}
                     onClick={() => handleListingClick(listing)}
+                    onLocationUpdate={handleLocationUpdate}
                   />
                 ))}
               </div>

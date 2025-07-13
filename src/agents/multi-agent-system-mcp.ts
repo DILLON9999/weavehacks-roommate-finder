@@ -16,10 +16,17 @@ interface EnhancedListing extends CleanListing {
     durationInTraffic?: string;
     recommendation: string;
   };
+  locationAnalysis?: {
+    walkScore: number;
+    bikeScore: number;
+    transitScore: number;
+    safetySentiment: string;
+  };
   combinedScore?: number;
   scores?: {
     housing?: number;
     commute?: number;
+    location?: number;
     combined?: number;
   };
   explanation?: string;
