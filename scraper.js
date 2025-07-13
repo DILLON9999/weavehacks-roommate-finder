@@ -67,6 +67,7 @@ function processListings(rawListings) {
         // Create clean listing
         const clean = {
             id,
+            url: raw.url,
             title: raw.title || '',
             price: parsePrice(raw.price),
             location: raw.location || '',

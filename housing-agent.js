@@ -43,31 +43,72 @@ class HousingAgent {
     constructor() {
         this.listings = [];
         this.model = new openai_1.ChatOpenAI({
-            modelName: 'gpt-4',
+            modelName: 'gpt-4o-mini',
             temperature: 0.1,
         });
         this.loadListings();
     }
     loadListings() {
-        const filePath = 'CraigslistData/clean-listings.json';
-        if (!(0, fs_1.existsSync)(filePath)) {
-            console.log('❌ No clean-listings.json found in CraigslistData folder. Run: npm run process');
-            return;
-        }
-        try {
-            const data = (0, fs_1.readFileSync)(filePath, 'utf8');
-            this.listings = JSON.parse(data);
-            console.log(`📂 Loaded ${this.listings.length} listings from ${filePath}`);
-            // Debug: show first few listings
-            if (this.listings.length > 0) {
-                console.log('📋 Sample listings:');
-                this.listings.slice(0, 3).forEach(listing => {
-                    console.log(`  - ${listing.title}: $${listing.price} (${listing.housingType})`);
+        this.listings = [];
+        let totalLoaded = 0;
+        // Load Craigslist data
+        const craigslistPath = 'CraigslistData/clean-listings.json';
+        if ((0, fs_1.existsSync)(craigslistPath)) {
+            try {
+                const craigslistData = (0, fs_1.readFileSync)(craigslistPath, 'utf8');
+                const craigslistListings = JSON.parse(craigslistData);
+                // Add source field to identify origin
+                craigslistListings.forEach((listing) => {
+                    listing.source = 'craigslist';
                 });
+                this.listings.push(...craigslistListings);
+                totalLoaded += craigslistListings.length;
+                console.log(`📂 Loaded ${craigslistListings.length} listings from Craigslist`);
+            }
+            catch (error) {
+                console.log('❌ Error loading Craigslist listings:', error);
             }
         }
-        catch (error) {
-            console.log('❌ Error loading listings:', error);
+        else {
+            console.log('⚠️ No Craigslist data found at CraigslistData/clean-listings.json');
+        }
+        // Load Facebook data
+        const facebookPath = 'FacebookData/clean-listings.json';
+        if ((0, fs_1.existsSync)(facebookPath)) {
+            try {
+                const facebookData = (0, fs_1.readFileSync)(facebookPath, 'utf8');
+                const facebookListings = JSON.parse(facebookData);
+                // Add source field to identify origin
+                facebookListings.forEach((listing) => {
+                    listing.source = 'facebook';
+                });
+                this.listings.push(...facebookListings);
+                totalLoaded += facebookListings.length;
+                console.log(`📂 Loaded ${facebookListings.length} listings from Facebook`);
+            }
+            catch (error) {
+                console.log('❌ Error loading Facebook listings:', error);
+            }
+        }
+        else {
+            console.log('⚠️ No Facebook data found at FacebookData/clean-listings.json');
+        }
+        if (totalLoaded === 0) {
+            console.log('❌ No listings loaded from any source. Run scrapers first.');
+            return;
+        }
+        console.log(`📊 Total listings loaded: ${totalLoaded}`);
+        // Debug: show sample listings from each source
+        if (this.listings.length > 0) {
+            console.log('📋 Sample listings:');
+            const craigslistSample = this.listings.filter(l => l.source === 'craigslist').slice(0, 2);
+            const facebookSample = this.listings.filter(l => l.source === 'facebook').slice(0, 2);
+            craigslistSample.forEach(listing => {
+                console.log(`  🔵 Craigslist: ${listing.title}: $${listing.price} (${listing.housingType})`);
+            });
+            facebookSample.forEach(listing => {
+                console.log(`  🔴 Facebook: ${listing.title}: $${listing.price} (${listing.housingType})`);
+            });
         }
     }
     // Deterministic filtering
@@ -138,12 +179,10 @@ class HousingAgent {
                 failedCount++;
                 return false;
             }
-            // Location filter
-            if (filters.location && !listing.location.toLowerCase().includes(filters.location.toLowerCase())) {
-                console.log(`❌ Location mismatch: ${listing.location} does not contain ${filters.location}`);
-                failedCount++;
-                return false;
-            }
+            // Location filter - removed as it was too strict and causing 0 matches
+            // The AI often extracts work locations (like "Stanford University") as location filters
+            // which don't match housing locations (like "Palo Alto, CA")
+            // Location matching is better handled by the commute agent
             // If we get here, the listing passed all filters
             console.log(`✅ Passed: ${listing.title} - $${listing.price}`);
             passedCount++;
@@ -169,14 +208,15 @@ Respond with ONLY a JSON object (no other text):
   "housingType": "house" | "apartment" | "condo" | null,
   "privateRoom": boolean or null,
   "privateBath": boolean or null,
-  "smoking": boolean or null,
-  "location": string or null
+  "smoking": boolean or null
 }
 
 Examples:
 "Find houses under $2000" → {"maxPrice": 2000, "housingType": "house"}
-"Show me 2+ bedroom apartments in Oakland" → {"minBedrooms": 2, "housingType": "apartment", "location": "Oakland"}
+"Show me 2+ bedroom apartments" → {"minBedrooms": 2, "housingType": "apartment"}
 "Private bath required, no smoking" → {"privateBath": true, "smoking": false}
+
+Note: Do not extract location filters as location matching is handled by the commute agent.
 `;
         try {
             const response = await this.model.invoke(prompt);
@@ -195,9 +235,20 @@ Examples:
     async matchWithAI(listings, naturalLanguageQuery, maxResults = 5) {
         if (listings.length === 0)
             return [];
-        const results = [];
-        for (const listing of listings.slice(0, 20)) { // Limit to first 20 for performance
-            const prompt = `
+        console.log(`🚀 Processing ${listings.length} listings in parallel (5 groups)...`);
+        // Divide listings into 5 groups for parallel processing
+        const groupSize = Math.ceil(listings.length / 5);
+        const groups = [];
+        for (let i = 0; i < listings.length; i += groupSize) {
+            groups.push(listings.slice(i, i + groupSize));
+        }
+        console.log(`📊 Created ${groups.length} groups with sizes: ${groups.map(g => g.length).join(', ')}`);
+        // Process each group in parallel
+        const processGroup = async (group, groupIndex) => {
+            const groupResults = [];
+            console.log(`🔄 Processing group ${groupIndex + 1}/${groups.length} (${group.length} listings)...`);
+            for (const listing of group) {
+                const prompt = `
 Rate how well this listing matches the criteria: "${naturalLanguageQuery}"
 
 Listing:
@@ -216,21 +267,63 @@ Listing:
 Rate from 1-10 how well this matches the criteria.
 Respond with ONLY a number (1-10).
 `;
-            try {
-                const response = await this.model.invoke(prompt);
-                const content = response.content;
-                const score = parseInt(content.trim());
-                if (!isNaN(score) && score >= 6) {
-                    results.push({ listing, score });
+                try {
+                    const response = await this.model.invoke(prompt);
+                    const content = response.content;
+                    const score = parseInt(content.trim());
+                    if (!isNaN(score) && score >= 6) {
+                        // Generate AI summary for the listing
+                        const summary = await this.generateListingSummary(listing, naturalLanguageQuery);
+                        groupResults.push({
+                            listing,
+                            matchPercentage: Math.round((score / 10) * 100), // Convert 1-10 scale to percentage
+                            originalUrl: listing.url,
+                            descriptionSummary: summary
+                        });
+                    }
+                }
+                catch (error) {
+                    console.log(`❌ Error scoring listing ${listing.id} in group ${groupIndex + 1}:`, error);
                 }
             }
-            catch (error) {
-                console.log(`Error scoring listing ${listing.id}:`, error);
-            }
-        }
+            console.log(`✅ Group ${groupIndex + 1} completed: ${groupResults.length} matches found`);
+            return groupResults;
+        };
+        // Process all groups in parallel
+        const groupPromises = groups.map((group, index) => processGroup(group, index));
+        const groupResults = await Promise.all(groupPromises);
+        // Combine all results from all groups
+        const allResults = groupResults.flat();
+        console.log(`🎉 Parallel processing complete! Found ${allResults.length} total matches`);
         // Sort by score and return top results
-        results.sort((a, b) => b.score - a.score);
-        return results.slice(0, maxResults).map(r => r.listing);
+        allResults.sort((a, b) => b.matchPercentage - a.matchPercentage);
+        return allResults.slice(0, maxResults);
+    }
+    // Generate AI summary of listing description
+    async generateListingSummary(listing, naturalLanguageQuery) {
+        const prompt = `
+Create a concise 1-2 sentence summary of this roommate listing description. Highlight how the listing matches with the users roommate search parameters:
+
+<listing description>
+"${listing.description}"
+</listing description>
+
+<user search criteria>
+"${naturalLanguageQuery}
+
+Focus on the most important details like roommate preferences, lifestyle, and unique features.
+Keep it under 100 characters if possible.
+`;
+        try {
+            const response = await this.model.invoke(prompt);
+            const summary = response.content;
+            return summary.trim();
+        }
+        catch (error) {
+            console.log(`Error generating summary for listing ${listing.id}:`, error);
+            // Fallback to truncated description
+            return listing.description.substring(0, 80) + '...';
+        }
     }
     // Main search function
     async search(query) {
@@ -250,7 +343,17 @@ Respond with ONLY a number (1-10).
         const hasNaturalLanguage = await this.hasNaturalLanguageRequirements(query);
         if (!hasNaturalLanguage) {
             console.log('✅ Returning deterministic results');
-            return filteredListings.slice(0, 10);
+            const deterministicResults = [];
+            for (const listing of filteredListings.slice(0, 10)) {
+                const summary = await this.generateListingSummary(listing, query);
+                deterministicResults.push({
+                    listing,
+                    matchPercentage: 100, // 100% match for deterministic results
+                    originalUrl: listing.url,
+                    descriptionSummary: summary
+                });
+            }
+            return deterministicResults;
         }
         // Step 4: Apply AI matching for natural language requirements
         console.log('🤖 Applying AI matching...');
@@ -282,7 +385,7 @@ Respond with ONLY: yes or no
     // Get summary stats
     getSummary() {
         if (this.listings.length === 0) {
-            return 'No listings loaded. Run: npm run process';
+            return 'No listings loaded. Run scrapers first.';
         }
         const prices = this.listings.map(l => l.price).filter(p => p > 0);
         const minPrice = Math.min(...prices);
@@ -292,7 +395,20 @@ Respond with ONLY: yes or no
             acc[l.housingType] = (acc[l.housingType] || 0) + 1;
             return acc;
         }, {});
+        // Count by source
+        const sources = this.listings.reduce((acc, l) => {
+            const source = l.source || 'unknown';
+            acc[source] = (acc[source] || 0) + 1;
+            return acc;
+        }, {});
+        const sourceBreakdown = Object.entries(sources)
+            .map(([source, count]) => {
+            const icon = source === 'craigslist' ? '🔵' : source === 'facebook' ? '🔴' : '⚪';
+            return `${icon} ${source}: ${count}`;
+        })
+            .join(', ');
         return `📊 ${this.listings.length} listings loaded
+📍 Sources: ${sourceBreakdown}
 💰 Price: $${minPrice} - $${maxPrice} (avg: $${avgPrice})
 🏠 Types: ${Object.entries(housingTypes).map(([type, count]) => `${type}: ${count}`).join(', ')}`;
     }
@@ -304,10 +420,15 @@ Respond with ONLY: yes or no
         }
         console.log(`\n🎯 Found ${listings.length} results:\n`);
         listings.forEach((listing, index) => {
-            console.log(`${index + 1}. ${listing.title}`);
-            console.log(`   💰 $${listing.price} | 🏠 ${listing.housingType} | 📍 ${listing.location}`);
-            console.log(`   🛏️  ${listing.bedrooms}BR/${listing.bathrooms}BA | Private Room: ${listing.privateRoom ? '✅' : '❌'} | Private Bath: ${listing.privateBath ? '✅' : '❌'}`);
-            console.log(`   📝 ${listing.description.substring(0, 100)}...`);
+            const source = listing.listing.source;
+            const sourceIcon = source === 'craigslist' ? '🔵' : source === 'facebook' ? '🔴' : '⚪';
+            const sourceName = source === 'craigslist' ? 'Craigslist' : source === 'facebook' ? 'Facebook' : 'Unknown';
+            console.log(`${index + 1}. ${listing.listing.title} ${sourceIcon} ${sourceName}`);
+            console.log(`   🎯 ${listing.matchPercentage}% Match`);
+            console.log(`   💰 $${listing.listing.price} | 🏠 ${listing.listing.housingType} | 📍 ${listing.listing.location}`);
+            console.log(`   🛏️  ${listing.listing.bedrooms}BR/${listing.listing.bathrooms}BA | Private Room: ${listing.listing.privateRoom ? '✅' : '❌'} | Private Bath: ${listing.listing.privateBath ? '✅' : '❌'}`);
+            console.log(`   📝 ${listing.descriptionSummary}`);
+            console.log(`   🔗 View original: ${listing.originalUrl}`);
             console.log('');
         });
     }
@@ -320,6 +441,7 @@ async function startChat() {
         output: process.stdout,
     });
     console.log('🏠 Housing Search Agent');
+    console.log('Searching across Craigslist and Facebook Marketplace data!');
     console.log('Ask natural language questions about housing!');
     console.log('Examples:');
     console.log('- "Find houses under $2000 with female roommates"');

@@ -17,7 +17,6 @@ interface DeterministicFilters {
   privateRoom?: boolean;
   privateBath?: boolean;
   smoking?: boolean;
-  location?: string;
 }
 
 interface MatchedListing {
@@ -186,12 +185,10 @@ class HousingAgent {
         return false;
       }
       
-      // Location filter
-      if (filters.location && !listing.location.toLowerCase().includes(filters.location.toLowerCase())) {
-        console.log(`❌ Location mismatch: ${listing.location} does not contain ${filters.location}`);
-        failedCount++;
-        return false;
-      }
+      // Location filter - removed as it was too strict and causing 0 matches
+      // The AI often extracts work locations (like "Stanford University") as location filters
+      // which don't match housing locations (like "Palo Alto, CA")
+      // Location matching is better handled by the commute agent
       
       // If we get here, the listing passed all filters
       console.log(`✅ Passed: ${listing.title} - $${listing.price}`);
@@ -220,14 +217,15 @@ Respond with ONLY a JSON object (no other text):
   "housingType": "house" | "apartment" | "condo" | null,
   "privateRoom": boolean or null,
   "privateBath": boolean or null,
-  "smoking": boolean or null,
-  "location": string or null
+  "smoking": boolean or null
 }
 
 Examples:
 "Find houses under $2000" → {"maxPrice": 2000, "housingType": "house"}
-"Show me 2+ bedroom apartments in Oakland" → {"minBedrooms": 2, "housingType": "apartment", "location": "Oakland"}
+"Show me 2+ bedroom apartments" → {"minBedrooms": 2, "housingType": "apartment"}
 "Private bath required, no smoking" → {"privateBath": true, "smoking": false}
+
+Note: Do not extract location filters as location matching is handled by the commute agent.
 `;
 
     try {
