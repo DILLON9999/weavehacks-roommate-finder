@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
@@ -132,6 +132,7 @@ export default function PlacesPage() {
 
   const handleBackToListings = () => {
     setShowDetail(false);
+    setSelectedListing(null); // Clear selection to allow free map navigation
   };
 
   const handlePriceChange = (minPrice: number | null, maxPrice: number | null) => {
@@ -234,10 +235,7 @@ export default function PlacesPage() {
           <Map 
             listings={displayedListings} 
             selectedListing={selectedListing}
-            onListingSelect={(listingUrl) => {
-              setSelectedListing(listingUrl);
-              setShowDetail(true);
-            }}
+            onListingSelect={handleListingClick}
             onBoundsChange={handleMapBoundsChange}
           />
         </div>
