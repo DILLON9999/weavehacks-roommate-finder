@@ -135,6 +135,7 @@ export default function PlacesPage() {
 
   const handleBackToListings = () => {
     setShowDetail(false);
+    setSelectedListing(null); // Clear selection to allow free map navigation
   };
 
   const handlePriceChange = (minPrice: number | null, maxPrice: number | null) => {
@@ -224,7 +225,7 @@ export default function PlacesPage() {
           <Map 
             listings={filteredListings} 
             selectedListing={selectedListing}
-            onListingSelect={setSelectedListing}
+            onListingSelect={handleListingClick}
             onBoundsChange={handleMapBoundsChange}
           />
         </div>

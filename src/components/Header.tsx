@@ -96,7 +96,12 @@ export default function Header() {
       <div className="mx-[3%] flex items-center justify-between relative">
         {/* Logo */}
         <div className="flex items-center">
-          <h1 className="text-2xl font-bold text-white">roomer</h1>
+          <button 
+            onClick={() => router.push('/places')}
+            className="text-2xl font-bold text-white hover:text-gray-300 transition-colors cursor-pointer"
+          >
+            roomer
+          </button>
         </div>
 
         {/* AI Search Bar - Centered */}

@@ -32,6 +32,7 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
     zoom: 11
   });
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
 
   // Request location permission and get user location on component mount
   useEffect(() => {
@@ -72,19 +73,19 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
     getUserLocation();
   }, []);
 
-  // Center map on selected listing
+  // Center map on selected listing (only if user is not manually interacting)
   useEffect(() => {
-    if (selectedListing && mapRef.current) {
+    if (selectedListing && mapRef.current && !isUserInteracting) {
       const listing = listings.find(l => l.url === selectedListing);
       if (listing) {
         mapRef.current.flyTo({
           center: [parseFloat(listing.coordinates.longitude), parseFloat(listing.coordinates.latitude)],
           zoom: 14,
-          duration: 1000
+          duration: 300
         });
       }
     }
-  }, [selectedListing, listings]);
+  }, [selectedListing, listings, isUserInteracting]);
 
   // Send initial bounds when map loads
   useEffect(() => {
@@ -126,6 +127,19 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
     }
   };
 
+  // Handle user interaction start (dragging, zooming, etc.)
+  const handleMoveStart = () => {
+    setIsUserInteracting(true);
+  };
+
+  // Handle user interaction end
+  const handleMoveEnd = () => {
+    // Add a small delay before allowing auto-centering again
+    setTimeout(() => {
+      setIsUserInteracting(false);
+    }, 500);
+  };
+
   return (
     <Map
       ref={mapRef}
@@ -134,6 +148,8 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
       style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/dark-v11"
       onMove={handleMapMove}
+      onMoveStart={handleMoveStart}
+      onMoveEnd={handleMoveEnd}
     >
       <NavigationControl position="bottom-right" />
       
