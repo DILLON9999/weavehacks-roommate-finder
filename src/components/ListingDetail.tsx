@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, MapPin, Calendar, Home, Bath, Car, Shirt, Ban, Users } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Home, Bath, Car, Shirt, Ban, Users, Sparkles, Target, Route } from 'lucide-react';
 import { Listing } from '@/types/listing';
 import ImageLightbox from './ImageLightbox';
 
@@ -53,6 +53,15 @@ export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
     setShowAllImages(true);
   };
 
+  // Get match score color based on percentage
+  const getMatchScoreColor = (score: number) => {
+    if (score >= 90) return 'from-green-500 to-green-600';
+    if (score >= 80) return 'from-blue-500 to-blue-600';
+    if (score >= 70) return 'from-yellow-500 to-yellow-600';
+    if (score >= 60) return 'from-orange-500 to-orange-600';
+    return 'from-red-500 to-red-600';
+  };
+
   const visibleImages = showAllImages ? listing.images : listing.images?.slice(0, 6);
   const remainingCount = listing.images ? listing.images.length - 6 : 0;
 
@@ -77,15 +86,100 @@ export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
             <Calendar className="w-4 h-4" />
             <span>Posted {formatDate(listing.postedDate)}</span>
           </div>
+          {listing.source && (
+            <div className="flex items-center gap-1 text-blue-500">
+              <span>Source: {listing.source}</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Price */}
-        <div className="mb-6">
+        {/* Price and Match Score */}
+        <div className="mb-6 flex items-center justify-between">
           <div className="text-3xl font-bold text-blue-500">{listing.price}/month</div>
+          {listing.matchScore && (
+            <div className={`bg-gradient-to-r ${getMatchScoreColor(listing.matchScore)} text-white rounded-full px-4 py-2 text-sm font-bold flex items-center gap-2 shadow-lg`}>
+              <Sparkles className="w-4 h-4" />
+              {Math.round(listing.matchScore)}% Match
+            </div>
+          )}
         </div>
+
+        {/* AI Match Analysis */}
+        {(listing.explanation || listing.scores) && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2">
+              <Target className="w-5 h-5 text-blue-500" />
+              AI Match Analysis
+            </h3>
+            
+            {listing.explanation && (
+              <div className="mb-4">
+                <h4 className="font-medium mb-2 text-foreground">Why this listing matches your criteria:</h4>
+                <p className="text-muted-foreground leading-relaxed">{listing.explanation}</p>
+              </div>
+            )}
+
+            {listing.scores && (
+              <div className="grid grid-cols-2 gap-3">
+                {listing.scores.housing && (
+                  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Home className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium">Housing Score</span>
+                    </div>
+                    <div className="text-xl font-bold text-blue-500">{listing.scores.housing}%</div>
+                  </div>
+                )}
+                {listing.scores.commute && (
+                  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Car className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-medium">Commute Score</span>
+                    </div>
+                    <div className="text-xl font-bold text-green-500">{listing.scores.commute}%</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Commute Analysis */}
+        {listing.commuteAnalysis && (
+          <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2">
+              <Route className="w-5 h-5 text-green-500" />
+              Commute Analysis
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Distance</div>
+                <div className="font-medium">{listing.commuteAnalysis.distance}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Travel Time</div>
+                <div className="font-medium">{listing.commuteAnalysis.duration}</div>
+              </div>
+              {listing.commuteAnalysis.durationInTraffic && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">In Traffic</div>
+                  <div className="font-medium">{listing.commuteAnalysis.durationInTraffic}</div>
+                </div>
+              )}
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Rating</div>
+                <div className="font-medium">{listing.commuteAnalysis.rating}/10</div>
+              </div>
+            </div>
+            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <div className="text-sm text-muted-foreground mb-1">Recommendation</div>
+              <div className="text-sm">{listing.commuteAnalysis.recommendation}</div>
+            </div>
+          </div>
+        )}
 
         {/* Images */}
         {listing.images && listing.images.length > 0 && (

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, X, Bot, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Listing } from '@/types/listing';
 
 interface Message {
   id: string;
@@ -14,13 +15,14 @@ interface Message {
 interface AIChatbotProps {
   isOpen: boolean;
   onClose: () => void;
+  onListingsUpdate?: (listings: Listing[]) => void;
 }
 
-export default function AIChatbot({ isOpen, onClose }: AIChatbotProps) {
+export default function AIChatbot({ isOpen, onClose, onListingsUpdate }: AIChatbotProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hi! I\'m your AI assistant for finding rooms and roommates. How can I help you today?',
+      content: 'Hi! I\'m your AI assistant for finding rooms and roommates. I can help you find listings based on your specific criteria like budget, location, roommate preferences, and more. What are you looking for?',
       isUser: false,
       timestamp: new Date(),
     },
@@ -74,6 +76,11 @@ export default function AIChatbot({ isOpen, onClose }: AIChatbotProps) {
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, aiMessage]);
+
+        // If we have listings from the agent system, pass them to the parent
+        if (data.listings && data.listings.length > 0 && onListingsUpdate) {
+          onListingsUpdate(data.listings);
+        }
       } else {
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -83,7 +90,7 @@ export default function AIChatbot({ isOpen, onClose }: AIChatbotProps) {
         };
         setMessages(prev => [...prev, errorMessage]);
       }
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: 'Sorry, I\'m having trouble connecting. Please try again.',
@@ -147,7 +154,7 @@ export default function AIChatbot({ isOpen, onClose }: AIChatbotProps) {
                     </div>
                     <div>
                       <h3 className="font-semibold text-white">AI Assistant</h3>
-                      <p className="text-sm text-gray-300">Here to help you find your perfect room</p>
+                      <p className="text-sm text-gray-300">Powered by intelligent agents</p>
                     </div>
                   </div>
                   <button
@@ -223,7 +230,7 @@ export default function AIChatbot({ isOpen, onClose }: AIChatbotProps) {
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder="Ask me anything about finding rooms..."
+                      placeholder="Ask me to find rooms based on your criteria..."
                       className="flex-1 px-4 py-3 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
                       disabled={isLoading}
                     />

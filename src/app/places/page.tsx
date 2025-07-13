@@ -2,17 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User } from '@supabase/supabase-js';
 import { RefreshCw } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
-import Map from '@/components/Map';
+import { Listing } from '@/types/listing';
 import Header from '@/components/Header';
-
-import PriceFilter from '@/components/PriceFilter';
-import BedsFilter from '@/components/BedsFilter';
 import ListingCard from '@/components/ListingCard';
 import ListingDetail from '@/components/ListingDetail';
-import { Listing } from '@/types/listing';
+import Map from '@/components/Map';
+import PriceFilter from '@/components/PriceFilter';
+import BedsFilter from '@/components/BedsFilter';
 
 interface MapBounds {
   north: number;
@@ -24,7 +23,9 @@ interface MapBounds {
 export default function PlacesPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [listings, setListings] = useState<Listing[]>([]);
+  const [allListings, setAllListings] = useState<Listing[]>([]);
+  const [displayedListings, setDisplayedListings] = useState<Listing[]>([]);
+  const [isAgentFiltered, setIsAgentFiltered] = useState(false);
   const [selectedListing, setSelectedListing] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -65,7 +66,8 @@ export default function PlacesPage() {
         try {
           const response = await fetch('/listings.json');
           const data = await response.json();
-          setListings(data);
+          setAllListings(data);
+          setDisplayedListings(data);
         } catch (error) {
           console.error('Failed to load listings:', error);
         } finally {
@@ -83,53 +85,48 @@ export default function PlacesPage() {
     return parseInt(cleanPrice) || 0;
   };
 
-  // Parse beds/baths from attributes
-  const parseBedsOrBaths = (value: any): number => {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const num = parseInt(value.replace(/[^\d]/g, ''));
-      return isNaN(num) ? 0 : num;
+  // Apply filters to listings
+  useEffect(() => {
+    if (!isAgentFiltered) {
+      let filtered = allListings;
+
+      // Apply price filter
+      if (priceRange.min !== null || priceRange.max !== null) {
+        filtered = filtered.filter(listing => {
+          const price = parsePrice(listing.price);
+          const minOk = priceRange.min === null || price >= priceRange.min;
+          const maxOk = priceRange.max === null || price <= priceRange.max;
+          return minOk && maxOk;
+        });
+      }
+
+      // Apply beds/baths filter
+      if (bedsBathsFilter.beds !== null || bedsBathsFilter.baths !== null) {
+        filtered = filtered.filter(listing => {
+          const beds = parseInt(listing.attributes.bedrooms || '0');
+          const baths = parseFloat(listing.attributes.bathrooms || '0');
+          const bedsOk = bedsBathsFilter.beds === null || beds >= bedsBathsFilter.beds;
+          const bathsOk = bedsBathsFilter.baths === null || baths >= bedsBathsFilter.baths;
+          return bedsOk && bathsOk;
+        });
+      }
+
+      // Apply map bounds filter
+      if (mapBounds) {
+        filtered = filtered.filter(listing => {
+          const lat = parseFloat(listing.coordinates.latitude);
+          const lng = parseFloat(listing.coordinates.longitude);
+          return lat >= mapBounds.south && lat <= mapBounds.north && 
+                 lng >= mapBounds.west && lng <= mapBounds.east;
+        });
+      }
+
+      setDisplayedListings(filtered);
     }
-    return 0;
-  };
+  }, [allListings, priceRange, bedsBathsFilter, mapBounds, isAgentFiltered]);
 
-  // Check if a listing is within map bounds
-  const isListingInBounds = (listing: Listing, bounds: MapBounds): boolean => {
-    const lat = parseFloat(listing.coordinates.latitude);
-    const lng = parseFloat(listing.coordinates.longitude);
-    
-    return lat >= bounds.south && 
-           lat <= bounds.north && 
-           lng >= bounds.west && 
-           lng <= bounds.east;
-  };
-
-  // Filter listings based on all criteria including map bounds
-  const filteredListings = listings.filter(listing => {
-    // Price filter
-    const listingPrice = parsePrice(listing.price);
-    const matchesPrice = (priceRange.min === null || listingPrice >= priceRange.min) &&
-                        (priceRange.max === null || listingPrice <= priceRange.max);
-
-    // Beds filter
-    const listingBeds = parseBedsOrBaths(listing.attributes.bedrooms);
-    const matchesBeds = bedsBathsFilter.beds === null || 
-                       (bedsBathsFilter.beds === 0 && listingBeds === 0) ||
-                       (bedsBathsFilter.beds === 4 && listingBeds >= 4) ||
-                       listingBeds === bedsBathsFilter.beds;
-
-    // Baths filter
-    const listingBaths = parseBedsOrBaths(listing.attributes.bathrooms);
-    const matchesBaths = bedsBathsFilter.baths === null || listingBaths >= bedsBathsFilter.baths;
-
-    // Map bounds filter - only show listings within the current map view
-    const matchesBounds = mapBounds === null || isListingInBounds(listing, mapBounds);
-
-    return matchesPrice && matchesBeds && matchesBaths && matchesBounds;
-  });
-
-  const handleListingClick = (url: string) => {
-    setSelectedListing(url);
+  const handleListingClick = (listing: Listing) => {
+    setSelectedListing(listing.url);
     setShowDetail(true);
   };
 
@@ -152,14 +149,22 @@ export default function PlacesPage() {
   const handleRefresh = () => {
     setPriceRange({ min: null, max: null });
     setBedsBathsFilter({ beds: null, baths: null });
-    // Reset map bounds filter
     setMapBounds(null);
-    // Optionally reload listings
-    window.location.reload();
+    setIsAgentFiltered(false);
+    setDisplayedListings(allListings);
+  };
+
+  const handleAgentListingsUpdate = (agentListings: Listing[]) => {
+    setDisplayedListings(agentListings);
+    setIsAgentFiltered(true);
+    // Clear traditional filters when agent filtering is active
+    setPriceRange({ min: null, max: null });
+    setBedsBathsFilter({ beds: null, baths: null });
+    setMapBounds(null);
   };
 
   const selectedListingData = selectedListing 
-    ? listings.find(l => l.url === selectedListing) 
+    ? displayedListings.find(l => l.url === selectedListing) 
     : null;
 
   // Show loading screen while checking authentication
@@ -181,7 +186,7 @@ export default function PlacesPage() {
   if (loading) {
     return (
       <div className="flex flex-col h-screen bg-background">
-        <Header />
+        <Header onListingsUpdate={handleAgentListingsUpdate} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-lg text-muted-foreground">Loading listings...</div>
         </div>
@@ -191,13 +196,18 @@ export default function PlacesPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <Header />
+      <Header onListingsUpdate={handleAgentListingsUpdate} />
       
       {/* Filter Section */}
       <div className="bg-background border-b border-border px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-foreground flex-shrink-0">
-            {filteredListings.length} Results in Current View
+            {displayedListings.length} Results in Current View
+            {isAgentFiltered && (
+              <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                AI Filtered
+              </span>
+            )}
           </h2>
           
           <div className="flex items-center gap-3 ml-auto">
@@ -222,9 +232,12 @@ export default function PlacesPage() {
         {/* Left Side - Map */}
         <div className="flex-1 min-h-0">
           <Map 
-            listings={filteredListings} 
+            listings={displayedListings} 
             selectedListing={selectedListing}
-            onListingSelect={setSelectedListing}
+            onListingSelect={(listingUrl) => {
+              setSelectedListing(listingUrl);
+              setShowDetail(true);
+            }}
             onBoundsChange={handleMapBoundsChange}
           />
         </div>
@@ -239,17 +252,17 @@ export default function PlacesPage() {
           ) : (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-2 gap-4">
-                {filteredListings.map((listing) => (
+                {displayedListings.map((listing) => (
                   <ListingCard
                     key={listing.url}
                     listing={listing}
                     isSelected={selectedListing === listing.url}
-                    onClick={() => handleListingClick(listing.url)}
+                    onClick={() => handleListingClick(listing)}
                   />
                 ))}
               </div>
               
-              {filteredListings.length === 0 && (
+              {displayedListings.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
                   <div className="text-muted-foreground text-lg mb-2">
                     No listings found in current view

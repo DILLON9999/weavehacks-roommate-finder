@@ -15,6 +15,13 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Facebook image domains
+      {
+        protocol: 'https',
+        hostname: '**.fbcdn.net',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

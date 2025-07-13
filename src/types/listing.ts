@@ -22,4 +22,20 @@ export interface Listing {
     parking?: string;
     smoking?: boolean;
   };
+  // Agent system extensions
+  matchScore?: number;
+  explanation?: string;
+  commuteAnalysis?: {
+    rating: number;
+    distance: string;
+    duration: string;
+    durationInTraffic?: string;
+    recommendation: string;
+  };
+  scores?: {
+    housing?: number;
+    commute?: number;
+    combined?: number;
+  };
+  source?: string;
 } 

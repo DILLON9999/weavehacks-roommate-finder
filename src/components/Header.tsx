@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, LogOut, Settings, User as UserIcon, Search } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon, Search } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
+import { Listing } from '@/types/listing';
 import AIChatbot from './AIChatbot';
 
 interface UserProfile {
@@ -16,7 +17,11 @@ interface UserProfile {
   updated_at: string;
 }
 
-export default function Header() {
+interface HeaderProps {
+  onListingsUpdate?: (listings: Listing[]) => void;
+}
+
+export default function Header({ onListingsUpdate }: HeaderProps) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -89,6 +94,13 @@ export default function Header() {
     router.push('/settings');
   };
 
+  const handleListingsUpdate = (listings: Listing[]) => {
+    if (onListingsUpdate) {
+      onListingsUpdate(listings);
+    }
+    setShowChatbot(false); // Close chatbot after getting results
+  };
+
   const displayName = profile?.full_name || user?.email || 'Loading...';
 
   return (
@@ -115,71 +127,46 @@ export default function Header() {
         </div>
 
         {/* User Profile */}
-        <div className="flex items-center gap-3">
-          <span className="text-foreground font-medium text-sm max-w-[150px] truncate">
-            {displayName}
-          </span>
-          <div className="relative">
-            <button 
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors overflow-hidden"
-            >
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <User className="w-5 h-5 text-foreground" />
-              )}
-            </button>
-            
-            {/* Dropdown Menu */}
-            {showDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50 transform -translate-x-full translate-x-10">
-                <div className="p-2">
-                  <div className="px-3 py-2 text-sm text-muted-foreground border-b border-border">
-                    <div className="flex items-center gap-2">
-                      {profile?.avatar_url ? (
-                        <img
-                          src={profile.avatar_url}
-                          alt="Profile"
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
-                      ) : (
-                        <UserIcon className="w-4 h-4" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-xs text-foreground font-medium truncate">
-                          {profile?.full_name || 'No name set'}
-                        </div>
-                        <div className="text-xs truncate">{user?.email}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSettings}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors mt-1"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
-                </div>
+        <div className="relative">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+              <UserIcon className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="text-sm font-medium text-white hidden sm:inline">
+              {displayName}
+            </span>
+          </button>
+          
+          {showDropdown && (
+            <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg z-50">
+              <div className="p-3 border-b border-zinc-700">
+                <p className="text-sm font-medium text-white">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
-            )}
-          </div>
+              <div className="p-1">
+                <button
+                  onClick={handleSettings}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-zinc-800 rounded-md transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
-      {/* Click outside to close dropdown */}
       {showDropdown && (
         <div 
           className="fixed inset-0 z-40" 
@@ -191,6 +178,7 @@ export default function Header() {
       <AIChatbot
         isOpen={showChatbot}
         onClose={() => setShowChatbot(false)}
+        onListingsUpdate={handleListingsUpdate}
       />
     </header>
   );
