@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import Map, { Marker, NavigationControl } from 'react-map-gl';
+import Map, { Marker, NavigationControl, GeolocateControl } from 'react-map-gl';
 import type { MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Listing } from '@/types/listing';
@@ -17,11 +17,52 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoidGVzdGl
 
 export default function MapComponent({ listings, selectedListing, onListingSelect }: MapProps) {
   const mapRef = useRef<MapRef>(null);
+  const geolocateControlRef = useRef<any>(null);
   const [viewport, setViewport] = useState({
     latitude: 37.7749,
     longitude: -122.4194,
     zoom: 11
   });
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  // Request location permission and get user location on component mount
+  useEffect(() => {
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setUserLocation({ latitude, longitude });
+            
+            // Center map on user location
+            if (mapRef.current) {
+              mapRef.current.flyTo({
+                center: [longitude, latitude],
+                zoom: 12,
+                duration: 1500
+              });
+            }
+          },
+          (error) => {
+            console.log('Location permission denied or unavailable:', error);
+            // Fallback to San Francisco
+            setViewport({
+              latitude: 37.7749,
+              longitude: -122.4194,
+              zoom: 11
+            });
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 600000 // 10 minutes
+          }
+        );
+      }
+    };
+
+    getUserLocation();
+  }, []);
 
   // Center map on selected listing
   useEffect(() => {
@@ -47,10 +88,40 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
       mapboxAccessToken={MAPBOX_TOKEN}
       initialViewState={viewport}
       style={{ width: '100%', height: '100%' }}
-      mapStyle="mapbox://styles/mapbox/light-v11"
+      mapStyle="mapbox://styles/mapbox/dark-v11"
       onMove={(evt) => setViewport(evt.viewState)}
     >
-      <NavigationControl position="top-right" />
+      <NavigationControl position="bottom-right" />
+      
+      <GeolocateControl
+        ref={geolocateControlRef}
+        position="bottom-right"
+        positionOptions={{
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 600000
+        }}
+        trackUserLocation={true}
+        showUserHeading={true}
+        showAccuracyCircle={true}
+        style={{
+          marginBottom: '60px' // Position above navigation control
+        }}
+      />
+
+      {/* Custom blue dot for user location */}
+      {userLocation && (
+        <Marker
+          longitude={userLocation.longitude}
+          latitude={userLocation.latitude}
+          anchor="center"
+        >
+          <div className="relative">
+            <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+            <div className="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full opacity-30 animate-pulse"></div>
+          </div>
+        </Marker>
+      )}
       
       {listings.map((listing) => (
         <Marker
@@ -67,7 +138,7 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
             className={`rounded-full px-3 py-1 font-semibold text-sm shadow-lg cursor-pointer transition-all border-2 ${
               selectedListing === listing.url 
                 ? 'bg-blue-600 text-white border-blue-600 scale-110' 
-                : 'bg-white text-gray-900 border-white hover:scale-105 hover:shadow-xl'
+                : 'bg-card text-foreground border-border hover:scale-105 hover:shadow-xl'
             }`}
           >
             {formatPrice(listing.price)}

@@ -4,28 +4,30 @@ import { User } from 'lucide-react';
 
 export default function Header() {
   return (
-    <header className="bg-white border-b border-gray-200 px-8 py-6">
-      <div className="flex items-center justify-between">
+    <header className="bg-background border-b border-border px-6 py-4">
+      <div className="mx-[3%] flex items-center justify-between relative">
         {/* Logo */}
-        <div className="flex items-center gap-12">
-          <h1 className="text-3xl font-bold text-blue-600">roomers</h1>
-          
-          {/* Navigation */}
-          <nav className="flex items-center gap-2">
-            <button className="px-8 py-3 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors font-medium">
+        <div className="flex items-center">
+          <h1 className="text-2xl font-semibold text-white">roomer</h1>
+        </div>
+
+        {/* Navigation - Centered */}
+        <div className="absolute left-1/2 transform -translate-x-1/2">
+          <nav className="flex items-center gap-1">
+            <button className="px-6 py-2 rounded-full border border-border text-muted-foreground hover:bg-muted transition-colors font-medium text-sm">
               Roomies
             </button>
-            <button className="px-8 py-3 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium">
+            <button className="px-6 py-2 rounded-full bg-white text-black hover:bg-gray-100 transition-colors font-medium text-sm">
               Places
             </button>
           </nav>
         </div>
 
         {/* User Profile */}
-        <div className="flex items-center gap-4">
-          <span className="text-gray-700 font-medium">Noel Testing</span>
-          <button className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center hover:bg-gray-800 transition-colors">
-            <User className="w-6 h-6 text-white" />
+        <div className="flex items-center gap-3">
+          <span className="text-foreground font-medium text-sm">John Humphrey</span>
+          <button className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+            <User className="w-5 h-5 text-foreground" />
           </button>
         </div>
       </div>

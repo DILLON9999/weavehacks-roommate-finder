@@ -19,7 +19,7 @@ export default function ListingCard({ listing, isSelected, onClick }: ListingCar
 
   return (
     <div
-      className={`cursor-pointer rounded-2xl overflow-hidden transition-all bg-white border border-gray-200 shadow-sm hover:shadow-md ${
+      className={`cursor-pointer rounded-2xl overflow-hidden transition-all bg-card border border-border shadow-sm hover:shadow-md hover:border-ring ${
         isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
       }`}
       onClick={onClick}
@@ -40,8 +40,8 @@ export default function ListingCard({ listing, isSelected, onClick }: ListingCar
       {/* Address section */}
       <div className="p-4">
         <div className="flex items-start gap-2">
-          <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-          <span className="text-sm text-gray-600 leading-tight">{listing.location}</span>
+          <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-muted-foreground leading-tight">{listing.location}</span>
         </div>
       </div>
     </div>
