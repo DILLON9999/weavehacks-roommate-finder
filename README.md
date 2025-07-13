@@ -1,4 +1,4 @@
-# 🏠 Roomer - WeaveHacks 2024
+# 🏠 Roomer - WeaveHacks 2025
 
 **Finding the perfect roommate shouldn't feel like dating apps from hell.** 
 
@@ -105,4 +105,4 @@ Built with caffeine, determination, and probably too much ambition for a hackath
 
 ---
 
-*Made for WeaveHacks 2024 - where we learned that building AI agents is like herding cats, but way more fun.*
+*Made for WeaveHacks 2025 - where we learned that building AI agents is like herding cats, but way more fun.*
