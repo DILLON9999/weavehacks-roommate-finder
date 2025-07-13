@@ -1,0 +1,28 @@
+{
+  "name": "craigslist-scraper",
+  "version": "1.0.0",
+  "description": "Scrape Craigslist roommate listings with AI-powered search",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "npx tsc scraper.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop && node scraper.js",
+    "chat": "npx tsc housing-agent.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop && node housing-agent.js"
+  },
+  "dependencies": {
+    "@browserbasehq/sdk": "^2.6.0",
+    "@browserbasehq/stagehand": "^2.4.1",
+    "@langchain/core": "^0.1.7",
+    "@langchain/openai": "^0.0.8",
+    "apify-client": "^2.12.6",
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.3.1",
+    "playwright": "^1.54.1",
+    "playwright-core": "^1.54.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  }
+}
