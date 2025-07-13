@@ -7,7 +7,7 @@ import { RefreshCw } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import Map from '@/components/Map';
 import Header from '@/components/Header';
-import SearchBar from '@/components/SearchBar';
+
 import PriceFilter from '@/components/PriceFilter';
 import BedsFilter from '@/components/BedsFilter';
 import ListingCard from '@/components/ListingCard';
@@ -26,7 +26,6 @@ export default function PlacesPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [listings, setListings] = useState<Listing[]>([]);
   const [selectedListing, setSelectedListing] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState<{ min: number | null; max: number | null }>({ min: null, max: null });
@@ -107,12 +106,6 @@ export default function PlacesPage() {
 
   // Filter listings based on all criteria including map bounds
   const filteredListings = listings.filter(listing => {
-    // Text search filter
-    const matchesSearch = searchQuery === '' || 
-      listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.description.toLowerCase().includes(searchQuery.toLowerCase());
-
     // Price filter
     const listingPrice = parsePrice(listing.price);
     const matchesPrice = (priceRange.min === null || listingPrice >= priceRange.min) &&
@@ -132,7 +125,7 @@ export default function PlacesPage() {
     // Map bounds filter - only show listings within the current map view
     const matchesBounds = mapBounds === null || isListingInBounds(listing, mapBounds);
 
-    return matchesSearch && matchesPrice && matchesBeds && matchesBaths && matchesBounds;
+    return matchesPrice && matchesBeds && matchesBaths && matchesBounds;
   });
 
   const handleListingClick = (url: string) => {
@@ -157,7 +150,6 @@ export default function PlacesPage() {
   };
 
   const handleRefresh = () => {
-    setSearchQuery('');
     setPriceRange({ min: null, max: null });
     setBedsBathsFilter({ beds: null, baths: null });
     // Reset map bounds filter
@@ -208,11 +200,7 @@ export default function PlacesPage() {
             {filteredListings.length} Results in Current View
           </h2>
           
-          <div className="flex-1 max-w-md">
-            <SearchBar value={searchQuery} onChange={setSearchQuery} />
-          </div>
-          
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ml-auto">
             <PriceFilter onPriceChange={handlePriceChange} />
             <BedsFilter onFilterChange={handleBedsBathsChange} />
           </div>

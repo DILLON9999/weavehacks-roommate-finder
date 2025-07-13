@@ -31,6 +31,15 @@ The `/places` page features advanced map-based filtering where:
 - Traditional filters (search, price, beds/baths) work alongside map filtering
 - Real-time results counter shows listings in current view
 
+## AI Search Assistant
+
+The app features an AI-powered search assistant that helps users find rooms and roommates:
+- Access via the search bar in the header or press `Cmd+K` (or `Ctrl+K` on Windows/Linux)
+- Powered by OpenAI's GPT-4 model
+- Provides personalized recommendations and answers questions about room finding
+- Chat interface with message history
+- Contextual responses tailored to the roommate finding platform
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

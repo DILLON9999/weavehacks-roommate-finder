@@ -8,6 +8,7 @@ Create a `.env.local` file in the root directory with the following:
 NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ## Getting a Mapbox Token
@@ -24,6 +25,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 2. Once your project is created, go to Settings → API
 3. Copy the Project URL and add it as `NEXT_PUBLIC_SUPABASE_URL`
 4. Copy the anon/public key and add it as `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+## Setting up OpenAI API
+
+1. Go to [OpenAI Platform](https://platform.openai.com/)
+2. Create an account or sign in
+3. Navigate to API Keys in your dashboard
+4. Create a new API key
+5. Copy the key and add it as `OPENAI_API_KEY` in your `.env.local` file
 
 ## Database Setup
 

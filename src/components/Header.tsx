@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, LogOut, Settings, User as UserIcon } from 'lucide-react';
+import { User, LogOut, Settings, User as UserIcon, Search } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
+import AIChatbot from './AIChatbot';
 
 interface UserProfile {
   id: string;
@@ -19,6 +20,7 @@ export default function Header() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,6 +44,22 @@ export default function Header() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowChatbot(true);
+      }
+      if (e.key === 'Escape' && showChatbot) {
+        setShowChatbot(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showChatbot]);
 
   const loadProfile = async () => {
     try {
@@ -81,16 +99,19 @@ export default function Header() {
           <h1 className="text-2xl font-bold text-white">roomer</h1>
         </div>
 
-        {/* Navigation - Centered */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
-          <nav className="flex items-center gap-1">
-            <button className="px-6 py-2 rounded-full border border-border text-muted-foreground hover:bg-muted transition-colors font-medium text-sm">
-              Roomies
-            </button>
-            <button className="px-6 py-2 rounded-full bg-white text-black hover:bg-gray-100 transition-colors font-medium text-sm">
-              Places
-            </button>
-          </nav>
+        {/* AI Search Bar - Centered */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 w-full max-w-sm">
+          <button
+            onClick={() => setShowChatbot(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg hover:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-left"
+          >
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <span className="text-muted-foreground flex-1 text-sm">Curate your search</span>
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded text-xs text-muted-foreground">
+              <span>⌘</span>
+              <span>K</span>
+            </div>
+          </button>
         </div>
 
         {/* User Profile */}
@@ -165,6 +186,12 @@ export default function Header() {
           onClick={() => setShowDropdown(false)}
         />
       )}
+      
+      {/* AI Chatbot */}
+      <AIChatbot
+        isOpen={showChatbot}
+        onClose={() => setShowChatbot(false)}
+      />
     </header>
   );
 } 
