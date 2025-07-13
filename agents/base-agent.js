@@ -158,10 +158,11 @@ class AgentCoordinator {
     registerAgent(agent) {
         this.agents.set(agent.agentId, agent);
         console.log(`📋 Registered agent: ${agent.agentName}`);
-        // Connect all agents to each other (full mesh)
+        // Connect all agents to each other (full mesh) - bidirectional connections
         this.agents.forEach(existingAgent => {
             if (existingAgent.agentId !== agent.agentId) {
                 agent.connectToAgent(existingAgent);
+                existingAgent.connectToAgent(agent);
             }
         });
     }

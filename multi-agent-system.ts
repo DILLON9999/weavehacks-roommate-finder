@@ -1,8 +1,9 @@
 import { config } from 'dotenv';
 import * as readline from 'readline';
 import { BaseAgent, AgentCoordinator } from './agents/base-agent';
-import { TomTomCommuteAgent } from './agents/commute-agent-tomtom';
-import { HousingAgent, DeterministicFilters } from './housing-agent';
+import { MapboxCommuteAgent } from './agents/commute-agent-mapbox';
+import { HousingAgent, DeterministicFilters, MatchedListing } from './agents/housing-agent';
+import { OrchestratorAgent, QueryAnalysis } from './agents/orchestrator-agent';
 import { CleanListing } from './scraper';
 
 config();
@@ -39,137 +40,37 @@ interface EnhancedListing extends CleanListing {
     budget?: number;
     lifestyle?: number;
   };
+  housingExplanation?: string; // Explanation for why this listing got its housing score
 }
 
-// Enhanced Housing Agent that works with the multi-agent system
-class EnhancedHousingAgent extends BaseAgent {
-  private originalAgent: HousingAgent;
 
-  constructor() {
-    super('HousingAgent');
-    this.originalAgent = new HousingAgent();
-    this.setupHousingHandlers();
-  }
-
-  async initialize(): Promise<void> {
-    console.log('🏠 Enhanced Housing Agent initializing...');
-    console.log('✅ Housing Agent ready');
-  }
-
-  getCapabilities() {
-    return [
-      {
-        name: 'search_listings',
-        description: 'Search for housing listings based on criteria',
-        parameters: {
-          query: 'string',
-          filters: 'DeterministicFilters'
-        }
-      },
-      {
-        name: 'filter_listings',
-        description: 'Apply deterministic filters to listings',
-        parameters: {
-          filters: 'DeterministicFilters'
-        }
-      },
-      {
-        name: 'get_listings_summary',
-        description: 'Get summary statistics of available listings',
-        parameters: {}
-      }
-    ];
-  }
-
-  private setupHousingHandlers(): void {
-    this.registerHandler('search_listings', this.handleSearchListings.bind(this));
-    this.registerHandler('filter_listings', this.handleFilterListings.bind(this));
-    this.registerHandler('get_listings_summary', this.handleGetSummary.bind(this));
-  }
-
-  private async handleSearchListings(message: any) {
-    try {
-      const { query } = message.payload;
-      const results = await this.originalAgent.search(query);
-      
-      return {
-        success: true,
-        data: results,
-        confidence: 0.9
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Search failed'
-      };
-    }
-  }
-
-  private async handleFilterListings(message: any) {
-    try {
-      const { filters } = message.payload;
-      const results = this.originalAgent.filterListings(filters);
-      
-      return {
-        success: true,
-        data: results,
-        confidence: 1.0
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Filtering failed'
-      };
-    }
-  }
-
-  private async handleGetSummary(message: any) {
-    try {
-      const summary = this.originalAgent.getSummary();
-      
-      return {
-        success: true,
-        data: { summary },
-        confidence: 1.0
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Summary failed'
-      };
-    }
-  }
-
-  // Public methods for direct access
-  public async searchListings(query: string): Promise<any[]> {
-    return await this.originalAgent.search(query);
-  }
-
-  public filterListings(filters: DeterministicFilters) {
-    return this.originalAgent.filterListings(filters);
-  }
-}
 
 // Main Multi-Agent System
 class MultiAgentHousingSystem {
   private coordinator: AgentCoordinator;
-  private housingAgent: EnhancedHousingAgent;
-  private commuteAgent: TomTomCommuteAgent;
+  private orchestrator: OrchestratorAgent;
+  private housingAgent: HousingAgent;
+  private commuteAgent: MapboxCommuteAgent;
 
   constructor() {
     this.coordinator = new AgentCoordinator();
-    this.housingAgent = new EnhancedHousingAgent();
-    this.commuteAgent = new TomTomCommuteAgent();
+    this.orchestrator = new OrchestratorAgent();
+    this.housingAgent = new HousingAgent();
+    this.commuteAgent = new MapboxCommuteAgent();
   }
 
   async initialize(): Promise<void> {
     console.log('🎭 Initializing Multi-Agent Housing System...');
     
+    // Mapbox commute agent handles its own MCP connection
+    
     // Initialize all agents
+    await this.orchestrator.initialize();
     await this.housingAgent.initialize();
     await this.commuteAgent.initialize();
     
     // Register agents with coordinator
+    this.coordinator.registerAgent(this.orchestrator);
     this.coordinator.registerAgent(this.housingAgent);
     this.coordinator.registerAgent(this.commuteAgent);
     
@@ -178,12 +79,43 @@ class MultiAgentHousingSystem {
     console.log(this.coordinator.getSystemStatus());
   }
 
-  async processQuery(userQuery: UserQuery): Promise<EnhancedListing[]> {
-    console.log(`\n🔍 Processing query: "${userQuery.text}"`);
+  async processQuery(query: string): Promise<EnhancedListing[]> {
+    console.log(`\n🔍 Processing query: "${query}"`);
     
-    // Step 1: Get housing listings
-    console.log('🏠 Searching for housing listings...');
-    const housingResults = await this.housingAgent.searchListings(userQuery.text);
+    // Step 1: Use orchestrator to analyze query and create plan
+    console.log('🎭 Orchestrator analyzing query...');
+    const analysis = await this.orchestrator.analyzeQuery(query);
+    
+    if (analysis.confidence < 0.5) {
+      console.log(`⚠️ Low confidence in query understanding (${analysis.confidence}). Results may be inaccurate.`);
+    }
+    
+    // Step 2: Execute based on intent
+    switch (analysis.intent) {
+      case 'housing_search':
+        return await this.executeHousingSearch(analysis);
+      
+      case 'combined_search':
+        return await this.executeCombinedSearch(analysis);
+      
+      case 'market_summary':
+        await this.executeMarketSummary();
+        return [];
+      
+      case 'commute_analysis':
+        console.log('🚗 Pure commute analysis not yet implemented for listings');
+        return [];
+      
+      default:
+        console.log('❌ Unknown intent, defaulting to housing search');
+        return await this.executeHousingSearch(analysis);
+    }
+  }
+
+  private async executeHousingSearch(analysis: QueryAnalysis): Promise<EnhancedListing[]> {
+    console.log('🏠 Executing housing search...');
+    
+    const housingResults = await this.housingAgent.search(analysis.housingCriteria?.query || '');
     
     if (housingResults.length === 0) {
       console.log('❌ No housing listings found');
@@ -192,19 +124,55 @@ class MultiAgentHousingSystem {
     
     console.log(`📋 Found ${housingResults.length} housing matches`);
     
-    // Step 2: Enhance with commute analysis if work location provided
+    const enhancedListings: EnhancedListing[] = housingResults.map(result => ({
+      ...result.listing,
+      source: (result.listing as any).source,
+      overallScore: result.matchPercentage,
+      scores: {
+        housing: result.matchPercentage
+      },
+      housingExplanation: result.descriptionSummary
+    }));
+    
+    enhancedListings.sort((a, b) => (b.overallScore || 0) - (a.overallScore || 0));
+    return enhancedListings.slice(0, 5);
+  }
+
+  private async executeCombinedSearch(analysis: QueryAnalysis): Promise<EnhancedListing[]> {
+    console.log('🏠🚗 Executing combined housing + commute search...');
+    
+    // Step 1: Get housing listings
+    const housingResults = await this.housingAgent.search(analysis.housingCriteria?.query || '');
+    
+    if (housingResults.length === 0) {
+      console.log('❌ No housing listings found');
+      return [];
+    }
+    
+    console.log(`📋 Found ${housingResults.length} housing matches`);
+    
+    // Step 2: Add commute analysis
     let enhancedListings: EnhancedListing[] = housingResults.map(result => ({
       ...result.listing,
       source: (result.listing as any).source,
       overallScore: result.matchPercentage,
       scores: {
         housing: result.matchPercentage
-      }
+      },
+      housingExplanation: result.descriptionSummary
     }));
     
-    if (userQuery.workLocation) {
-      console.log(`🚗 Analyzing commute to: ${userQuery.workLocation}`);
-      enhancedListings = await this.addCommuteAnalysis(enhancedListings, userQuery.workLocation, userQuery.commute);
+    if (analysis.commuteCriteria?.workLocation) {
+      console.log(`🚗 Analyzing commute to: ${analysis.commuteCriteria.workLocation}`);
+      enhancedListings = await this.addCommuteAnalysis(
+        enhancedListings, 
+        analysis.commuteCriteria.workLocation,
+        {
+          travelMode: analysis.commuteCriteria.travelMode,
+          maxDistance: analysis.commuteCriteria.maxDistance,
+          maxTime: analysis.commuteCriteria.maxTime
+        }
+      );
     }
     
     // Step 3: Calculate overall scores
@@ -213,7 +181,13 @@ class MultiAgentHousingSystem {
     // Step 4: Sort by overall score
     enhancedListings.sort((a, b) => (b.overallScore || 0) - (a.overallScore || 0));
     
-    return enhancedListings.slice(0, 5); // Return top 5
+    return enhancedListings.slice(0, 5);
+  }
+
+  private async executeMarketSummary(): Promise<void> {
+    console.log('📊 Generating market summary...');
+    const summary = this.housingAgent.getSummary();
+    console.log(summary);
   }
 
   private async addCommuteAnalysis(
@@ -225,30 +199,45 @@ class MultiAgentHousingSystem {
     
     // Set commute preferences if provided
     if (commutePrefs) {
-      await this.commuteAgent.sendMessage(
-        this.commuteAgent.agentId,
-        'set_preferences',
-        {
-          maxDistance: commutePrefs.maxDistance,
-          maxTime: commutePrefs.maxTime
-        }
-      );
+      // Set preferences directly on the commute agent
+      if (commutePrefs.maxDistance) {
+        (this.commuteAgent as any).maxAcceptableDistance = commutePrefs.maxDistance;
+      }
+      if (commutePrefs.maxTime) {
+        (this.commuteAgent as any).maxAcceptableTime = commutePrefs.maxTime;
+      }
     }
     
     for (const listing of listings) {
       try {
-        const commuteResponse = await this.commuteAgent.sendMessage(
-          this.commuteAgent.agentId,
-          'commute_analysis',
-          {
-            homeLocation: { address: listing.location },
-            workLocation: { address: workLocation },
-            travelMode: commutePrefs?.travelMode || 'driving'
-          }
-        );
+        // Map travel modes to Mapbox expected values
+        const travelModeMap: { [key: string]: string } = {
+          'driving': 'driving-traffic',
+          'walking': 'walking',
+          'bicycling': 'cycling',
+          'transit': 'driving' // Fallback to driving for transit
+        };
         
-        if (commuteResponse.success && commuteResponse.data) {
-          const commuteData = commuteResponse.data;
+        const mapboxTravelMode = travelModeMap[commutePrefs?.travelMode || 'driving'] || 'driving-traffic';
+        
+        // Call commute agent directly instead of using messaging system
+        // Pass listing coordinates if available
+        const homeLocation: any = { address: listing.location };
+        if ((listing as any).coordinates) {
+          homeLocation.coordinates = {
+            lat: (listing as any).coordinates.latitude,
+            lng: (listing as any).coordinates.longitude
+          };
+        }
+        
+        const commuteData = await this.commuteAgent.analyzeCommute({
+          homeLocation,
+          workLocation: { address: workLocation },
+          travelMode: mapboxTravelMode as any
+        });
+        
+        if (commuteData) {
+          console.log(`✅ Commute analysis successful for ${listing.location}: ${commuteData.rating}/10`);
           enhancedListings.push({
             ...listing,
             commuteAnalysis: {
@@ -264,8 +253,15 @@ class MultiAgentHousingSystem {
             }
           });
         } else {
-          // Keep listing without commute data
-          enhancedListings.push(listing);
+          // No commute analysis available - add listing without commute score
+          console.log(`❌ Commute analysis unavailable for ${listing.location} - continuing without commute score`);
+          enhancedListings.push({
+            ...listing,
+            scores: {
+              ...listing.scores
+              // No commute score - will be excluded from overall calculation
+            }
+          });
         }
       } catch (error) {
         console.log(`⚠️ Commute analysis failed for ${listing.location}:`, error);
@@ -332,6 +328,11 @@ class MultiAgentHousingSystem {
       console.log(`   💰 $${listing.price} | 🏠 ${listing.housingType} | 📍 ${listing.location}`);
       console.log(`   🛏️  ${listing.bedrooms}BR/${listing.bathrooms}BA | Private Room: ${listing.privateRoom ? '✅' : '❌'} | Private Bath: ${listing.privateBath ? '✅' : '❌'}`);
       
+      // Show housing explanation
+      if (listing.housingExplanation) {
+        console.log(`   📝 Housing Score: ${listing.housingExplanation}`);
+      }
+      
       // Show commute analysis if available
       if (listing.commuteAnalysis) {
         console.log(`   🚗 Commute: ${listing.commuteAnalysis.distance} (${listing.commuteAnalysis.duration}${listing.commuteAnalysis.durationInTraffic ? ` / ${listing.commuteAnalysis.durationInTraffic} in traffic` : ''})`);
@@ -388,16 +389,7 @@ async function startMultiAgentChat() {
       }
 
       try {
-        // Parse the query for work location
-        const workLocationMatch = input.match(/(?:commute to|work at|near)\s+([^,]+)/i);
-        const workLocation = workLocationMatch ? workLocationMatch[1].trim() : undefined;
-
-        const userQuery: UserQuery = {
-          text: input,
-          workLocation
-        };
-
-        const results = await system.processQuery(userQuery);
+        const results = await system.processQuery(input);
         system.displayResults(results);
       } catch (error) {
         console.log('❌ Error:', error);
@@ -411,7 +403,7 @@ async function startMultiAgentChat() {
 }
 
 // Export for use in other modules
-export { MultiAgentHousingSystem, EnhancedHousingAgent, UserQuery, EnhancedListing };
+export { MultiAgentHousingSystem, HousingAgent, UserQuery, EnhancedListing };
 
 // Run interactive chat if executed directly
 if (require.main === module) {

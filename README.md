@@ -8,8 +8,9 @@ Clean, simple TypeScript scraper for Craigslist roommate listings with AI-powere
 # Install dependencies
 npm install
 
-# Set up your OpenAI API key
+# Set up your API keys
 echo "OPENAI_API_KEY=your_key_here" > .env
+echo "MAPBOX_ACCESS_TOKEN=your_mapbox_token_here" >> .env
 
 # 1. Scrape listings (automatically processes data)
 npm run scrape 10
@@ -98,13 +99,49 @@ For complex criteria like:
 }
 ```
 
+## 🤖 Multi-Agent System
+
+Advanced AI orchestration with multiple specialized agents:
+
+```bash
+# Run the full multi-agent system
+npm run multi-agent
+```
+
+### Agents
+- **OrchestratorAgent** - AI-powered query analysis and agent coordination
+- **HousingAgent** - Search listings with explanatory scoring
+- **MapboxCommuteAgent** - Real-time commute analysis with traffic data
+
+### Example Queries
+```
+"Find a 2BR under $3000 with a close commute to Stanford University"
+"Show me pet-friendly apartments near downtown with parking"
+"I need a place with good commute to 1 Hacker Way, Menlo Park"
+```
+
+## 🗺️ Mapbox Setup
+
+For commute analysis, you need a Mapbox MCP server:
+
+1. Get a Mapbox API token from [mapbox.com](https://mapbox.com)
+2. Add to your `.env` file: `MAPBOX_ACCESS_TOKEN=your_token_here`
+3. Run the Mapbox MCP server on port 9000:
+   ```bash
+   # Install and run Mapbox MCP server (separate terminal)
+   # Follow Mapbox MCP documentation for setup
+   ```
+
 ## 🎯 Architecture
 
 1. **scraper.ts** - Unified scraping function with auto-processing
-2. **housing-agent.ts** - AI-powered search with deterministic + NL filtering
-3. **CraigslistData/listings.json** - Raw scraped data
-4. **CraigslistData/clean-listings.json** - Processed data for AI
-5. **CraigslistData/images.json** - Image URLs by listing ID
+2. **agents/housing-agent.ts** - BaseAgent-conformant housing search
+3. **agents/commute-agent-mapbox.ts** - Mapbox-powered commute analysis
+4. **agents/orchestrator-agent.ts** - AI query analysis and coordination
+5. **multi-agent-system.ts** - Orchestrated multi-agent execution
+6. **CraigslistData/listings.json** - Raw scraped data
+7. **CraigslistData/clean-listings.json** - Processed data for AI
+8. **CraigslistData/images.json** - Image URLs by listing ID
 
 ---
 

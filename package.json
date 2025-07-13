@@ -6,14 +6,19 @@
   "scripts": {
     "scrape": "npx tsc scraper.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node scraper.js",
     "chat": "npx tsc housing-agent.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node housing-agent.js",
+    "housing-agent": "npx tsc agents/housing-agent.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/housing-agent.js",
+    "orchestrator": "npx tsc agents/orchestrator-agent.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/orchestrator-agent.js",
     "multi-agent": "npx tsc multi-agent-system.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node multi-agent-system.js",
-    "tomtom-commute": "npx tsc agents/commute-agent-tomtom.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/commute-agent-tomtom.js"
+    "mapbox-commute": "npx tsc agents/commute-agent-mapbox.ts --target es2020 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck && node agents/commute-agent-mapbox.js"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",
     "@browserbasehq/stagehand": "^2.4.1",
-    "@langchain/core": "^0.1.7",
+    "@langchain/core": "^0.3.62",
+    "@langchain/langgraph": "^0.3.8",
+    "@langchain/mcp-adapters": "^0.5.3",
     "@langchain/openai": "^0.0.8",
+
     "apify-client": "^2.12.6",
     "axios": "^1.6.2",
     "cheerio": "^1.0.0-rc.12",
