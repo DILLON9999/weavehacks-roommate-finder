@@ -37,6 +37,7 @@ exports.MCPMultiAgentHousingSystem = void 0;
 const dotenv_1 = require("dotenv");
 const readline = __importStar(require("readline"));
 const orchestrator_agent_mcp_1 = require("./agents/orchestrator-agent-mcp");
+const weave = __importStar(require("weave"));
 (0, dotenv_1.config)();
 // Main MCP Multi-Agent System
 class MCPMultiAgentHousingSystem {
@@ -46,6 +47,19 @@ class MCPMultiAgentHousingSystem {
     async initialize() {
         console.log('🎭 Initializing MCP Multi-Agent Housing System...');
         console.log('🔧 This system uses Model Context Protocol for agent communication');
+        // Initialize Weave if API key is available
+        if (process.env.WEAVE_API_KEY) {
+            try {
+                await weave.init('housing-data-collector');
+                console.log('🎯 Weave initialized for tracking LLM calls and agent operations');
+            }
+            catch (error) {
+                console.warn('⚠️ Weave initialization failed:', error);
+            }
+        }
+        else {
+            console.log('💡 Add WEAVE_API_KEY to your .env to enable Weave tracking');
+        }
         console.log('');
         // Initialize the orchestrator (which will initialize all sub-agents)
         await this.orchestrator.initializeMCP();
@@ -58,6 +72,18 @@ class MCPMultiAgentHousingSystem {
     }
     async processQuery(query) {
         console.log(`\n🔍 Processing query: "${query}"`);
+        // Wrap with Weave if available
+        if (process.env.WEAVE_API_KEY) {
+            const processQueryWithWeave = weave.op(this.processQueryInternal.bind(this), {
+                name: 'process_user_query'
+            });
+            return await processQueryWithWeave(query);
+        }
+        else {
+            return await this.processQueryInternal(query);
+        }
+    }
+    async processQueryInternal(query) {
         try {
             // Use the orchestrator to handle the entire query
             const result = await this.orchestrator.processQuery(query);

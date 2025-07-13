@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import * as readline from 'readline';
 import { OrchestratorAgentMCP, OrchestratedResult } from './agents/orchestrator-agent-mcp';
 import { CleanListing } from './scraper';
+import * as weave from 'weave';
 
 config();
 
@@ -50,6 +51,19 @@ class MCPMultiAgentHousingSystem {
   async initialize(): Promise<void> {
     console.log('🎭 Initializing MCP Multi-Agent Housing System...');
     console.log('🔧 This system uses Model Context Protocol for agent communication');
+    
+    // Initialize Weave if API key is available
+    if (process.env.WEAVE_API_KEY) {
+      try {
+        await weave.init('housing-data-collector');
+        console.log('🎯 Weave initialized for tracking LLM calls and agent operations');
+      } catch (error) {
+        console.warn('⚠️ Weave initialization failed:', error);
+      }
+    } else {
+      console.log('💡 Add WEAVE_API_KEY to your .env to enable Weave tracking');
+    }
+    
     console.log('');
     
     // Initialize the orchestrator (which will initialize all sub-agents)
@@ -66,6 +80,18 @@ class MCPMultiAgentHousingSystem {
   async processQuery(query: string): Promise<EnhancedListing[]> {
     console.log(`\n🔍 Processing query: "${query}"`);
     
+    // Wrap with Weave if available
+    if (process.env.WEAVE_API_KEY) {
+      const processQueryWithWeave = weave.op(this.processQueryInternal.bind(this), { 
+        name: 'process_user_query' 
+      });
+      return await processQueryWithWeave(query);
+    } else {
+      return await this.processQueryInternal(query);
+    }
+  }
+
+  private async processQueryInternal(query: string): Promise<EnhancedListing[]> {
     try {
       // Use the orchestrator to handle the entire query
       const result = await this.orchestrator.processQuery(query);

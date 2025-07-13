@@ -1,6 +1,7 @@
 import { MCPBaseAgent, MCPTool, MCPToolResult, MCPAgentClient, AgentCapability } from './mcp-base-agent';
 import { HousingAgentMCP } from './housing-agent-mcp';
 import { CommuteAgentMCP } from './commute-agent-mcp';
+import * as weave from 'weave';
 
 export interface QueryAnalysis {
   intent: 'housing_search' | 'commute_analysis' | 'combined_search' | 'market_summary';
@@ -63,6 +64,24 @@ export class OrchestratorAgentMCP extends MCPBaseAgent {
     
     // Discover capabilities from all agents
     await this.discoverAgentCapabilities();
+    this.wrapMethodsWithWeave();
+  }
+
+  private wrapMethodsWithWeave(): void {
+    if (process.env.WEAVE_API_KEY) {
+      // Wrap key orchestration methods with Weave tracking
+      this.analyzeQuery = weave.op(this.analyzeQuery.bind(this), {
+        name: 'query_analysis'
+      });
+      
+      this.orchestrateSearch = weave.op(this.orchestrateSearch.bind(this), {
+        name: 'search_orchestration'
+      });
+      
+      this.executeCombinedSearch = weave.op(this.executeCombinedSearch.bind(this), {
+        name: 'combined_search_execution'
+      });
+    }
   }
 
   getMCPTools(): MCPTool[] {

@@ -40,6 +40,7 @@ The MCP architecture means:
    You need:
    - `OPENAI_API_KEY` - For AI processing
    - `TOMTOM_API_KEY` - For commute analysis
+   - `WEAVE_API_KEY` - For tracking LLM calls and agent operations (optional)
 
 3. **Scrape some data** (optional - sample data included)
    ```bash
@@ -100,4 +101,21 @@ Traditional approaches either use one massive prompt (slow, limited) or hard-cod
 - **Standardization**: Agents communicate through well-defined interfaces
 - **Debugging**: You can see exactly what each agent is doing
 
-It's like having a team of specialists who know how to work together, instead of one person trying to be an expert at everything. 
+It's like having a team of specialists who know how to work together, instead of one person trying to be an expert at everything.
+
+## Weave Integration
+
+This system integrates with [Weights & Biases Weave](https://wandb.github.io/weave/) to provide comprehensive tracking of:
+
+- **LLM Calls**: All OpenAI API calls with token usage and costs
+- **Agent Operations**: Function-level tracing of each agent's work
+- **Query Processing**: End-to-end traces of user queries through the system
+- **Performance Metrics**: Timing and success rates for different operations
+
+When you set `WEAVE_API_KEY` in your environment, the system automatically:
+- Wraps all AI decision-making functions with Weave tracking
+- Logs housing search operations and batch processing
+- Tracks commute analysis and route optimization
+- Records orchestrator query analysis and coordination
+
+Visit your Weave dashboard to see detailed traces, debug issues, and optimize performance. 

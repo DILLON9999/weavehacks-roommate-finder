@@ -1,6 +1,7 @@
 import { MCPBaseAgent, MCPTool, MCPToolResult, AgentCapability } from './mcp-base-agent';
 import { MultiServerMCPClient } from '@langchain/mcp-adapters';
 import { config } from 'dotenv';
+import * as weave from 'weave';
 
 config();
 
@@ -77,6 +78,21 @@ export class CommuteAgentMCP extends MCPBaseAgent {
       console.log('💡 Make sure to run: npx -y @mapbox/mcp-server');
       console.log('🔑 And set MAPBOX_ACCESS_TOKEN environment variable');
       this.mcpClient = null;
+    }
+    
+    this.wrapMethodsWithWeave();
+  }
+
+  private wrapMethodsWithWeave(): void {
+    if (process.env.WEAVE_API_KEY) {
+      // Wrap key methods with Weave tracking
+      this.analyzeCommute = weave.op(this.analyzeCommute.bind(this), {
+        name: 'commute_analysis'
+      });
+      
+      this.createAICommuteAnalysis = weave.op(this.createAICommuteAnalysis.bind(this), {
+        name: 'ai_commute_analysis'
+      });
     }
   }
 

@@ -1,6 +1,7 @@
 import { MCPBaseAgent, MCPTool, MCPToolResult, AgentCapability } from './mcp-base-agent';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import * as weave from 'weave';
 
 // Import types from the original housing agent
 export interface DeterministicFilters {
@@ -50,6 +51,24 @@ export class HousingAgentMCP extends MCPBaseAgent {
   async initialize(): Promise<void> {
     console.log('🏠 Initializing Housing Agent MCP...');
     await this.loadHousingData();
+    this.wrapMethodsWithWeave();
+  }
+
+  private wrapMethodsWithWeave(): void {
+    if (process.env.WEAVE_API_KEY) {
+      // Wrap key methods with Weave tracking
+      this.searchHousing = weave.op(this.searchHousing.bind(this), {
+        name: 'housing_search'
+      });
+      
+      this.matchWithAIBatch = weave.op(this.matchWithAIBatch.bind(this), {
+        name: 'housing_ai_batch_matching'
+      });
+      
+      this.hasNaturalLanguageRequirements = weave.op(this.hasNaturalLanguageRequirements.bind(this), {
+        name: 'housing_nl_analysis'
+      });
+    }
   }
 
   getMCPTools(): MCPTool[] {

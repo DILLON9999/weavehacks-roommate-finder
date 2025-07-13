@@ -1,5 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { config } from 'dotenv';
+import * as weave from 'weave';
+import OpenAI from 'openai';
 
 config();
 
@@ -33,7 +35,9 @@ export abstract class BaseAgent {
   protected agentId: string;
   protected agentName: string;
   protected model: ChatOpenAI;
+  protected openaiClient: OpenAI;
   protected messageHandlers: Map<string, (message: AgentMessage) => Promise<AgentResponse>> = new Map();
+  protected static weaveInitialized = false;
 
   constructor(agentName: string, modelName: string = 'gpt-4o-mini') {
     this.agentId = `${agentName}-${Date.now()}`;
@@ -42,6 +46,14 @@ export abstract class BaseAgent {
       modelName: modelName,
       temperature: 0.1,
     });
+    
+    // Initialize OpenAI client for Weave integration
+    this.openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    
+    // Initialize Weave once for all agents
+    this.initializeWeave();
   }
 
   abstract initialize(): Promise<void>;
@@ -70,13 +82,49 @@ export abstract class BaseAgent {
     }
   }
 
-  protected async makeAIDecision(prompt: string): Promise<string> {
+  private async initializeWeave(): Promise<void> {
+    if (!BaseAgent.weaveInitialized && process.env.WEAVE_API_KEY) {
+      try {
+        await weave.init('housing-data-collector');
+        BaseAgent.weaveInitialized = true;
+        console.log('🎯 Weave initialized for tracking');
+      } catch (error) {
+        console.warn('⚠️ Weave initialization failed:', error);
+      }
+    }
+  }
+
+  // Weave-wrapped AI decision method
+  private async makeAIDecisionWithWeave(prompt: string, agentName: string): Promise<string> {
     try {
-      const response = await this.model.invoke(prompt);
-      return response.content as string;
+      const response = await this.openaiClient.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+      });
+      return response.choices[0].message.content || '';
     } catch (error) {
-      console.error('AI decision error:', error);
+      console.error(`AI decision error in ${agentName}:`, error);
       throw error;
+    }
+  }
+
+  protected async makeAIDecision(prompt: string): Promise<string> {
+    // Use Weave-wrapped method if available, fallback to LangChain
+    if (process.env.WEAVE_API_KEY && BaseAgent.weaveInitialized) {
+      const wrappedFunction = weave.op(this.makeAIDecisionWithWeave.bind(this), {
+        name: `${this.agentName}_ai_decision`
+      });
+      return await wrappedFunction(prompt, this.agentName);
+    } else {
+      // Fallback to LangChain
+      try {
+        const response = await this.model.invoke(prompt);
+        return response.content as string;
+      } catch (error) {
+        console.error('AI decision error:', error);
+        throw error;
+      }
     }
   }
 
@@ -136,6 +184,7 @@ export abstract class MCPBaseAgent extends BaseAgent {
   constructor(agentName: string, modelName: string = 'gpt-4o-mini') {
     super(agentName, modelName);
     this.setupMCPHandlers();
+    this.wrapMCPMethodsWithWeave();
   }
 
   // Abstract method for agents to define their MCP tools
@@ -238,6 +287,16 @@ export abstract class MCPBaseAgent extends BaseAgent {
     await this.initialize();
     this.registerMCPToolHandlers();
     console.log(`🔧 MCP Server for ${this.agentName} initialized with ${this.mcpTools.size} tools`);
+  }
+
+  private wrapMCPMethodsWithWeave(): void {
+    if (process.env.WEAVE_API_KEY && BaseAgent.weaveInitialized) {
+      // Wrap the handleMessage method with Weave tracking
+      const originalHandleMessage = this.handleMessage.bind(this);
+      this.handleMessage = weave.op(originalHandleMessage, {
+        name: `${this.agentName}_handle_message`
+      });
+    }
   }
 
   // Get MCP server info for orchestrator
