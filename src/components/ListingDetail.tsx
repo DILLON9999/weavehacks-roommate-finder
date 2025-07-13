@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { ArrowLeft, MapPin, Calendar, Home, Bath, Car, Shirt, Ban, Users } from 'lucide-react';
 import { Listing } from '@/types/listing';
+import ImageLightbox from './ImageLightbox';
 
 interface ListingDetailProps {
   listing: Listing;
@@ -10,6 +12,10 @@ interface ListingDetailProps {
 }
 
 export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showAllImages, setShowAllImages] = useState(false);
+
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString();
@@ -37,6 +43,18 @@ export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
         return <Home className="w-4 h-4" />;
     }
   };
+
+  const handleImageClick = (index: number) => {
+    setCurrentImageIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const handleShowMoreImages = () => {
+    setShowAllImages(true);
+  };
+
+  const visibleImages = showAllImages ? listing.images : listing.images?.slice(0, 6);
+  const remainingCount = listing.images ? listing.images.length - 6 : 0;
 
   return (
     <div className="h-full flex flex-col bg-card">
@@ -74,24 +92,45 @@ export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3 text-foreground">Photos</h3>
             <div className="grid grid-cols-2 gap-3">
-              {listing.images.slice(0, 6).map((image, index) => (
-                <div key={index} className="relative h-32 rounded-lg overflow-hidden">
+              {visibleImages?.map((image, index) => (
+                <div 
+                  key={index} 
+                  className="relative h-32 rounded-lg overflow-hidden cursor-pointer group"
+                  onClick={() => handleImageClick(index)}
+                >
                   <Image
                     src={image}
                     alt={`${listing.title} - Photo ${index + 1}`}
                     fill
-                    className="object-cover hover:scale-105 transition-transform"
+                    className="object-cover group-hover:scale-105 transition-transform duration-200"
                   />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white text-sm font-medium">
+                      Click to enlarge
+                    </div>
+                  </div>
                 </div>
               ))}
-              {listing.images.length > 6 && (
-                <div className="relative h-32 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                  <span className="text-muted-foreground font-medium">
-                    +{listing.images.length - 6} more
+              {!showAllImages && remainingCount > 0 && (
+                <div 
+                  className="relative h-32 rounded-lg overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:bg-accent transition-colors"
+                  onClick={handleShowMoreImages}
+                >
+                  <span className="text-foreground font-medium">
+                    +{remainingCount} more
                   </span>
                 </div>
               )}
             </div>
+            
+            {showAllImages && remainingCount > 0 && (
+              <button
+                onClick={() => setShowAllImages(false)}
+                className="mt-3 text-sm text-blue-500 hover:text-blue-400 transition-colors"
+              >
+                Show less
+              </button>
+            )}
           </div>
         )}
 
@@ -153,6 +192,17 @@ export default function ListingDetail({ listing, onBack }: ListingDetailProps) {
           </a>
         </div>
       </div>
+
+      {/* Image Lightbox */}
+      {listing.images && (
+        <ImageLightbox
+          images={listing.images}
+          currentIndex={currentImageIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={setCurrentImageIndex}
+        />
+      )}
     </div>
   );
 } 

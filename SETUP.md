@@ -6,6 +6,8 @@ Create a `.env.local` file in the root directory with the following:
 
 ```
 NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ## Getting a Mapbox Token
@@ -15,6 +17,19 @@ NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
 3. Navigate to your account dashboard
 4. Copy your default public token
 5. Paste it in the `.env.local` file
+
+## Setting up Supabase
+
+1. Go to [Supabase](https://supabase.com/) and create a new project
+2. Once your project is created, go to Settings → API
+3. Copy the Project URL and add it as `NEXT_PUBLIC_SUPABASE_URL`
+4. Copy the anon/public key and add it as `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+## Database Setup
+
+1. In your Supabase dashboard, go to the SQL Editor
+2. Copy the contents of `database/schema.sql` and run it in the SQL Editor
+3. This will create the `profiles` table and set up Row Level Security (RLS)
 
 ## Running the Application
 

@@ -6,16 +6,24 @@ import type { MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Listing } from '@/types/listing';
 
+interface MapBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
 interface MapProps {
   listings: Listing[];
   selectedListing: string | null;
   onListingSelect: (url: string) => void;
+  onBoundsChange?: (bounds: MapBounds) => void;
 }
 
 // Demo Mapbox token - replace with your own from https://www.mapbox.com/
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoidGVzdGluZyIsImEiOiJjazJhM2dib2IwNGE5M29wOGZ2OG9ld3FyIn0.FGfgMTIrEd3dTgQ1q6f2Zw';
 
-export default function MapComponent({ listings, selectedListing, onListingSelect }: MapProps) {
+export default function MapComponent({ listings, selectedListing, onListingSelect, onBoundsChange }: MapProps) {
   const mapRef = useRef<MapRef>(null);
   const geolocateControlRef = useRef<any>(null);
   const [viewport, setViewport] = useState({
@@ -78,8 +86,44 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
     }
   }, [selectedListing, listings]);
 
+  // Send initial bounds when map loads
+  useEffect(() => {
+    if (onBoundsChange && mapRef.current) {
+      const timer = setTimeout(() => {
+        const bounds = mapRef.current?.getBounds();
+        if (bounds) {
+          onBoundsChange({
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            west: bounds.getWest()
+          });
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [onBoundsChange]);
+
   const formatPrice = (price: string) => {
     return price.replace(/[^\d,]/g, '');
+  };
+
+  // Calculate and send map bounds when map moves
+  const handleMapMove = (evt: any) => {
+    setViewport(evt.viewState);
+    
+    if (onBoundsChange && mapRef.current) {
+      const bounds = mapRef.current.getBounds();
+      if (bounds) {
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest()
+        });
+      }
+    }
   };
 
   return (
@@ -89,7 +133,7 @@ export default function MapComponent({ listings, selectedListing, onListingSelec
       initialViewState={viewport}
       style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/dark-v11"
-      onMove={(evt) => setViewport(evt.viewState)}
+      onMove={handleMapMove}
     >
       <NavigationControl position="bottom-right" />
       

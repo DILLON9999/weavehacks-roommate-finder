@@ -16,6 +16,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## App Structure
+
+- **Home Page (/)**: Redirects authenticated users to `/places`
+- **Places Page (/places)**: Main application with map-based listing filtering
+- **Authentication Page (/auth)**: Login and signup
+- **Settings Page (/settings)**: User profile management
+
+## Map-Based Filtering
+
+The `/places` page features advanced map-based filtering where:
+- Only listings within the current map viewport are shown
+- Moving or zooming the map automatically updates the visible listings
+- Traditional filters (search, price, beds/baths) work alongside map filtering
+- Real-time results counter shows listings in current view
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
