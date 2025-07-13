@@ -1,148 +1,103 @@
-# 🏠 Craigslist Housing Scraper
+# Housing Data Collector with MCP Multi-Agent System
 
-Clean, simple TypeScript scraper for Craigslist roommate listings with AI-powered search.
+A housing search system that scrapes listings from Craigslist and Facebook, then uses a multi-agent architecture to help you find places that match your preferences and commute needs.
 
-## 🚀 Quick Start
+## What it does
 
-```bash
-# Install dependencies
-npm install
+- **Scrapes housing data** from Craigslist and Facebook Marketplace
+- **Searches listings** using natural language queries
+- **Analyzes commutes** to your work location using TomTom routing
+- **Ranks results** by combining housing preferences with commute analysis
+- **Uses AI agents** that work together to give you better recommendations
 
-# Set up your API keys
-echo "OPENAI_API_KEY=your_key_here" > .env
-echo "MAPBOX_ACCESS_TOKEN=your_mapbox_token_here" >> .env
+## What makes this different
 
-# 1. Scrape listings (automatically processes data)
-npm run scrape 10
+This project uses **Model Context Protocol (MCP)** - a new standard that lets AI agents communicate with each other in a structured way. Instead of one big AI trying to do everything, we have specialized agents:
 
-# 2. Start AI chat
-npm run chat
-```
+- **Housing Agent**: Searches and filters listings
+- **Commute Agent**: Analyzes travel times and routes  
+- **Orchestrator Agent**: Coordinates everything and decides which agents to use
 
-## 📋 Commands
+The MCP architecture means:
+- Agents can work in parallel (faster searches)
+- Each agent is specialized (better results)
+- Easy to add new agents or data sources
+- Agents communicate through standardized interfaces
 
-| Command | Description |
-|---------|-------------|
-| `npm run scrape <number>` | Scrape N listings with full details and auto-process |
-| `npm run chat` | AI-powered housing search chat |
+## Setup
 
-## 🔧 Workflow
-
-### 1. Scrape & Process Data
-```bash
-npm run scrape 20  # Scrape 20 listings
-```
-Creates:
-- `CraigslistData/listings.json` - Raw scraped data
-- `CraigslistData/clean-listings.json` - Clean data without images (for AI)
-- `CraigslistData/images.json` - Mapping of listing IDs to image URLs
-
-### 2. Search with AI
-```bash
-npm run chat
-```
-
-## 🤖 AI Search Features
-
-The agent uses a **two-step process**:
-
-### Step 1: Deterministic Filters
-Handles concrete criteria:
-- Price range
-- Bedrooms/bathrooms
-- Housing type (house/apartment/condo)
-- Private room/bath requirements
-- Smoking preferences
-- Location
-
-### Step 2: Natural Language Matching
-For complex criteria like:
-- "female roommates"
-- "young professionals"
-- "quiet environment"
-- "clean and organized"
-- "social atmosphere"
-
-## 💬 Example Queries
-
-```
-"Find houses under $2000 with female roommates"
-"Show me apartments in Oakland with private bathrooms"
-"Find quiet places for young professionals"
-"2+ bedrooms, no smoking, with parking"
-```
-
-## 📊 Data Structure
-
-### Clean Listings
-```typescript
-{
-  id: string;
-  title: string;
-  price: number;
-  location: string;
-  description: string;
-  coordinates: { latitude: number; longitude: number };
-  bedrooms: number;
-  bathrooms: number;
-  privateRoom: boolean;
-  privateBath: boolean;
-  housingType: string;
-  // ... more attributes
-}
-```
-
-### Images Mapping
-```typescript
-{
-  "listingId": ["image1.jpg", "image2.jpg", ...]
-}
-```
-
-## 🤖 Multi-Agent System
-
-Advanced AI orchestration with multiple specialized agents:
-
-```bash
-# Run the full multi-agent system
-npm run multi-agent
-```
-
-### Agents
-- **OrchestratorAgent** - AI-powered query analysis and agent coordination
-- **HousingAgent** - Search listings with explanatory scoring
-- **MapboxCommuteAgent** - Real-time commute analysis with traffic data
-
-### Example Queries
-```
-"Find a 2BR under $3000 with a close commute to Stanford University"
-"Show me pet-friendly apartments near downtown with parking"
-"I need a place with good commute to 1 Hacker Way, Menlo Park"
-```
-
-## 🗺️ Mapbox Setup
-
-For commute analysis, you need a Mapbox MCP server:
-
-1. Get a Mapbox API token from [mapbox.com](https://mapbox.com)
-2. Add to your `.env` file: `MAPBOX_ACCESS_TOKEN=your_token_here`
-3. Run the Mapbox MCP server on port 9000:
+1. **Install dependencies**
    ```bash
-   # Install and run Mapbox MCP server (separate terminal)
-   # Follow Mapbox MCP documentation for setup
+   npm install
    ```
 
-## 🎯 Architecture
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
+   
+   You need:
+   - `OPENAI_API_KEY` - For AI processing
+   - `TOMTOM_API_KEY` - For commute analysis
 
-1. **scraper.ts** - Unified scraping function with auto-processing
-2. **agents/housing-agent.ts** - BaseAgent-conformant housing search
-3. **agents/commute-agent-mapbox.ts** - Mapbox-powered commute analysis
-4. **agents/orchestrator-agent.ts** - AI query analysis and coordination
-5. **multi-agent-system.ts** - Orchestrated multi-agent execution
-6. **CraigslistData/listings.json** - Raw scraped data
-7. **CraigslistData/clean-listings.json** - Processed data for AI
-8. **CraigslistData/images.json** - Image URLs by listing ID
+3. **Scrape some data** (optional - sample data included)
+   ```bash
+   node scraper.js
+   ```
 
----
+4. **Run the system**
+   ```bash
+   npm start
+   # or
+   node multi-agent-system-mcp.js
+   ```
 
-**Clean. Simple. Effective.** 🎯 
+## How to use
+
+Just ask in natural language:
+
+```
+"Find apartments under $2000 with private bathroom near Stanford"
+"Show me places with good commute to downtown SF"
+"I need a room for a female, clean, no smoking"
+```
+
+The system will:
+1. Parse your request and extract filters
+2. Search housing listings 
+3. Analyze commutes if you mention a work location
+4. Rank everything and show you the best matches
+
+## File structure
+
+```
+agents/
+├── mcp-base-agent.ts       # Base MCP agent functionality
+├── housing-agent-mcp.ts    # Housing search and filtering
+├── commute-agent-mcp.ts    # Route analysis with TomTom
+└── orchestrator-agent-mcp.ts # Coordinates other agents
+
+multi-agent-system-mcp.ts   # Main system entry point
+scraper.ts                  # Data collection from Craigslist/Facebook
+```
+
+## Data sources
+
+- **Craigslist**: Rooms, apartments, houses
+- **Facebook Marketplace**: Housing listings
+- **TomTom**: Real-time traffic and routing data
+
+The scraped data gets cleaned and standardized so all agents can work with it consistently.
+
+## Why MCP?
+
+Traditional approaches either use one massive prompt (slow, limited) or hard-coded integrations (brittle, hard to extend). MCP gives you:
+
+- **Modularity**: Each agent does one thing well
+- **Parallelization**: Multiple agents can work simultaneously  
+- **Extensibility**: Easy to add new agents or capabilities
+- **Standardization**: Agents communicate through well-defined interfaces
+- **Debugging**: You can see exactly what each agent is doing
+
+It's like having a team of specialists who know how to work together, instead of one person trying to be an expert at everything. 
